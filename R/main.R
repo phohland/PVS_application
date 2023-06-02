@@ -425,7 +425,7 @@ p4 <- curve %>%
   geom_signif(comparisons = list(c("female", "male")), 
               map_signif_level = TRUE,
               color = c("#000000"),
-              textsize = 5,
+              textsize = 8,
               annotation = "ns.") +
   labs (x = "", y = expression('hRELSA'[max])) +
   theme_classic() +

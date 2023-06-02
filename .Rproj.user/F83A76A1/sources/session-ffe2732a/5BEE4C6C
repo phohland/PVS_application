@@ -1,0 +1,26 @@
+{
+    "id": "5BEE4C6C",
+    "path": "~/Documents/GitHub/hRELSA_application/R/main.R",
+    "project_path": "R/main.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1685686879863.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "267,0",
+        "scrollLine": "247"
+    },
+    "folds": "7|12|26|0|\n269|39|278|0|\n279|67|282|0|\n283|47|399|0|\n400|56|411|0|\n412|44|445|0|\n446|76|536|0|\n537|37|603|0|\n",
+    "lastKnownWriteTime": 1685687380,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1685688890032,
+    "read_only": false,
+    "read_only_alternatives": []
+}
