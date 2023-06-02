@@ -9,7 +9,7 @@
 
 # Prior a installation of each package is needed
 
-library(hRELSA)
+#library(hRELSA)
 
 library(tidyverse)
 library(janitor)
@@ -30,6 +30,7 @@ library(car)
 # Blood pressure
 raw_bp <- read.csv("data/Blood_pressure_invasive.csv", sep = ";", header = TRUE, dec = ".", row.names = NULL)
 raw_bp <- as_tibble(raw_bp)
+names(raw_bp)[1] <- "pmid"
 names(raw_bp)[2] <- "time"
 names(raw_bp)[3] <- "systolicbp"
 names(raw_bp)[4] <- "diastolicbp"
@@ -47,6 +48,7 @@ raw_bp <- raw_bp %>%
 # Body temperature
 raw_temp <- read.csv("data/Body_temperature.csv", sep = ";", header = TRUE, dec = ".", row.names = NULL) 
 raw_temp <- as_tibble(raw_temp)
+names(raw_temp)[1] <- "pmid"
 names(raw_temp)[2] <- "time"
 names(raw_temp)[3] <- "temperature"
 raw_temp <- raw_temp %>%
@@ -61,6 +63,7 @@ raw_temp <- raw_temp %>%
 # Heart rate
 raw_hr <- read.csv("data/Heart_rate.csv", sep = ";", header = TRUE, dec = ".", row.names = NULL) 
 raw_hr <- as_tibble(raw_hr)
+names(raw_hr)[1] <- "pmid"
 names(raw_hr)[2] <- "time"
 names(raw_hr)[3] <- "hr"
 raw_hr <- raw_hr %>%
@@ -152,9 +155,6 @@ raw <- na.omit(raw)
 names(raw)[1] <- "id"
 names(raw)[2] <- "timepoint"
 
-# Write raw in a csv
-write.csv(raw, file = "data/raw.csv")
-
 # Merge patient information and sepsis labels
 raw_master_full <- merge(raw_master, raw_master_label, by = c("pmid"), all.x = TRUE, all.y = TRUE)
 raw_master_full <- raw_master_full[raw_master_full$pmid %in% raw$id, ]
@@ -179,6 +179,9 @@ for (l in 1:nrow(raw)) {
   sex <- raw_master_full$sex[raw_master_full$pmid == as.character(raw$id[l])]
   raw$condition[l] <- as.factor(sex)
 }
+
+# Write raw in a csv
+write.csv(raw, file = "data/raw.csv")
 
 # hRELSA  -----------------------------------------------------------------
 
@@ -425,7 +428,7 @@ p4 <- curve %>%
   geom_signif(comparisons = list(c("female", "male")), 
               map_signif_level = TRUE,
               color = c("#000000"),
-              textsize = 5,
+              textsize = 8,
               annotation = "ns.") +
   labs (x = "", y = expression('hRELSA'[max])) +
   theme_classic() +

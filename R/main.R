@@ -155,9 +155,6 @@ raw <- na.omit(raw)
 names(raw)[1] <- "id"
 names(raw)[2] <- "timepoint"
 
-# Write raw in a csv
-write.csv(raw, file = "data/raw.csv")
-
 # Merge patient information and sepsis labels
 raw_master_full <- merge(raw_master, raw_master_label, by = c("pmid"), all.x = TRUE, all.y = TRUE)
 raw_master_full <- raw_master_full[raw_master_full$pmid %in% raw$id, ]
@@ -182,6 +179,9 @@ for (l in 1:nrow(raw)) {
   sex <- raw_master_full$sex[raw_master_full$pmid == as.character(raw$id[l])]
   raw$condition[l] <- as.factor(sex)
 }
+
+# Write raw in a csv
+write.csv(raw, file = "data/raw.csv")
 
 # hRELSA  -----------------------------------------------------------------
 
