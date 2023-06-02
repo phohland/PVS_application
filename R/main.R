@@ -24,6 +24,7 @@ library(lmerTest)
 library(psych)
 library(lubridate)
 library(car)
+library(lsr)
 
 # Data setup -------------------------------------------------------------
 
