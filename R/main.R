@@ -9,7 +9,7 @@
 
 # Prior a installation of each package is needed
 
-library(hRELSA)
+#library(hRELSA)
 
 library(tidyverse)
 library(janitor)
@@ -30,6 +30,7 @@ library(car)
 # Blood pressure
 raw_bp <- read.csv("data/Blood_pressure_invasive.csv", sep = ";", header = TRUE, dec = ".", row.names = NULL)
 raw_bp <- as_tibble(raw_bp)
+names(raw_bp)[1] <- "pmid"
 names(raw_bp)[2] <- "time"
 names(raw_bp)[3] <- "systolicbp"
 names(raw_bp)[4] <- "diastolicbp"
@@ -47,6 +48,7 @@ raw_bp <- raw_bp %>%
 # Body temperature
 raw_temp <- read.csv("data/Body_temperature.csv", sep = ";", header = TRUE, dec = ".", row.names = NULL) 
 raw_temp <- as_tibble(raw_temp)
+names(raw_temp)[1] <- "pmid"
 names(raw_temp)[2] <- "time"
 names(raw_temp)[3] <- "temperature"
 raw_temp <- raw_temp %>%
@@ -61,6 +63,7 @@ raw_temp <- raw_temp %>%
 # Heart rate
 raw_hr <- read.csv("data/Heart_rate.csv", sep = ";", header = TRUE, dec = ".", row.names = NULL) 
 raw_hr <- as_tibble(raw_hr)
+names(raw_hr)[1] <- "pmid"
 names(raw_hr)[2] <- "time"
 names(raw_hr)[3] <- "hr"
 raw_hr <- raw_hr %>%
