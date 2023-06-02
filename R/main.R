@@ -9,7 +9,7 @@
 
 # Prior a installation of each package is needed
 
-#library(hRELSA)
+library(hRELSA)
 
 library(tidyverse)
 library(janitor)
@@ -180,9 +180,6 @@ for (l in 1:nrow(raw)) {
   raw$condition[l] <- as.factor(sex)
 }
 
-# Write raw in a csv
-write.csv(raw, file = "data/raw.csv")
-
 # hRELSA  -----------------------------------------------------------------
 
 # Select the variables to use the hRELSA with
@@ -208,8 +205,14 @@ raw <- raw %>%
   filter(temperature > 30 | is.na(temperature)) %>%
   filter(map < systolicbp)
 
+# Write raw in a csv
+write.csv(raw, file = "data/raw.csv")
+
 # Format the data
 dat <- hrelsa_format(raw, id = "id", time = "time", treatment = "treatment", condition = "condition", vars = vars, included_realtime = "timepoint")
+
+# Write dat in a csv
+write.csv(dat, file = "data/dat.csv")
 
 # Fetch data for maximal severity evaluation
 reference_dat <- dat %>% filter(treatment == "NoSepsis")
@@ -219,8 +222,14 @@ bsl <- hrelsa_adaptive_baselines(dat, reference_dat, vars = vars, turnvars = tur
 pre <- bsl$pre
 age_pre <- bsl$age_pre
 
+# Write pre in a csv
+write.csv(pre, file = "data/pre.csv")
+
 # Generate final data
 final <- hrelsa_final(pre, bsl, drop = dropvars, turnvars = turnvars, ambivars = ambivars, zvars = zvars)
+
+# Write final in a csv
+#write.csv(final, file = "data/final.csv")
 
 # Generate some analysis
 analysis <- hrelsa_analysis(final)
@@ -255,6 +264,7 @@ max(nosepsis_desc$stay)
 
 sd(nosepsis_desc$stay)
 sd(sepsis_desc$stay)
+leveneTest(as.numeric(desc$stay), desc$label)
 t.test(as.numeric(nosepsis_desc$stay), as.numeric(sepsis_desc$stay), var.equal = FALSE, alternative = "two.sided")
 cohensD(as.numeric(nosepsis_desc$stay), as.numeric(sepsis_desc$stay))
 
@@ -275,10 +285,10 @@ summary(entries)
 # Please note:
 # Before generating the correlation matrix include every variable in hRELSA calculation
 
-prep_final <- (final %>% select(all_of(vars)))
-prep_final <- prep_final %>% select("hr", "pulse", "sao2", "rr", "systolicbp", "map", "temperature")
-export <- round(cor(prep_final, method = "pearson", use = "complete.obs"),2)
-write.csv(export, file = "figs/table2.csv")
+# prep_final <- (final %>% select(all_of(vars)))
+# prep_final <- prep_final %>% select("hr", "pulse", "sao2", "rr", "systolicbp", "map", "temperature")
+# export <- round(cor(prep_final, method = "pearson", use = "complete.obs"),2)
+# write.csv(export, file = "figs/table2.csv")
 
 # The highest severity values of each variable and what this means --------
 
@@ -338,8 +348,8 @@ p01 <-ggplot() +
 
 p02 <-ggplot() +
   ggtitle("B") +
-  geom_point(data = curve00, aes(x = days, y = hr, color = "heart rate"), size = point_size, alpha = alpha_raw) +
-  geom_line(data = curve00, aes(x = days, y = hr, color = "heart rate"), size = line_size, alpha = alpha_raw) +
+  geom_point(data = curve00, aes(x = days, y = hr, color = "heart rate"), size = point_size, alpha = alpha) +
+  geom_line(data = curve00, aes(x = days, y = hr, color = "heart rate"), size = line_size, alpha = alpha) +
   labs (x = "days", y = "heart rate (/min)", colour = "") +
   ylim(52,232) + # Min and Max Heart Rate of whole Data set
   xlim(time_in_days-2,time_in_days+2) +
@@ -350,8 +360,8 @@ p02 <-ggplot() +
 
 p03 <-ggplot() +
   ggtitle("C") +
-  geom_point(data = curve00, aes(x = days, y = sao2, color = "oxygen saturation"), size = point_size, alpha = alpha_raw) +
-  geom_line(data = curve00, aes(x = days, y = sao2, color = "oxygen saturation"), size = line_size, alpha = alpha_raw) +
+  geom_point(data = curve00, aes(x = days, y = sao2, color = "oxygen saturation"), size = point_size, alpha = alpha) +
+  geom_line(data = curve00, aes(x = days, y = sao2, color = "oxygen saturation"), size = line_size, alpha = alpha) +
   labs (x = "days", y = "oxygen saturation (%)", colour = "") +
   ylim(14,100) + # Min and Max Heart Rate of whole Data set
   xlim(time_in_days-2,time_in_days+2) +
@@ -362,8 +372,8 @@ p03 <-ggplot() +
 
 p04 <-ggplot() +
   ggtitle("D") +
-  geom_point(data = curve00, aes(x = days, y = rr, color = "respiratory rate"), size = point_size, alpha = alpha_raw) +
-  geom_line(data = curve00, aes(x = days, y = rr, color = "respiratory rate"), size = line_size, alpha = alpha_raw) +
+  geom_point(data = curve00, aes(x = days, y = rr, color = "respiratory rate"), size = point_size, alpha = alpha) +
+  geom_line(data = curve00, aes(x = days, y = rr, color = "respiratory rate"), size = line_size, alpha = alpha) +
   labs (x = "days", y = "respiratory rate (/min)", colour = "") +
   ylim(0, 158) + # Min and Max Heart Rate of whole Data set
   xlim(time_in_days-2,time_in_days+2) +
@@ -374,8 +384,8 @@ p04 <-ggplot() +
 
 p05 <-ggplot() +
   ggtitle("E") +
-  geom_point(data = curve00, aes(x = days, y = map, color = "mean arterial blood pressure"), size = point_size, alpha = alpha_raw) +
-  geom_line(data = curve00, aes(x = days, y = map, color = "mean arterial blood pressure"), size = line_size, alpha = alpha_raw) +
+  geom_point(data = curve00, aes(x = days, y = map, color = "mean arterial blood pressure"), size = point_size, alpha = alpha) +
+  geom_line(data = curve00, aes(x = days, y = map, color = "mean arterial blood pressure"), size = line_size, alpha = alpha) +
   labs (x = "days", y = "mean arterial blood pressure (mmHg)", colour = "") +
   ylim(24, 196) + # Min and Max Heart Rate of whole Data set
   xlim(time_in_days-2,time_in_days+2) +
@@ -386,8 +396,8 @@ p05 <-ggplot() +
 
 p06 <-ggplot() +
   ggtitle("F") +
-  geom_point(data = curve00, aes(x = days, y = temperature, color = "temperature"), size = point_size, alpha = alpha_raw) +
-  geom_line(data = curve00, aes(x = days, y = temperature, color = "temperature"), size = line_size, alpha = alpha_raw) +
+  geom_point(data = curve00, aes(x = days, y = temperature, color = "temperature"), size = point_size, alpha = alpha) +
+  geom_line(data = curve00, aes(x = days, y = temperature, color = "temperature"), size = line_size, alpha = alpha) +
   labs (x = "days", y = "temperature (°C)", colour = "") +
   ylim(31.1,40.8) + # Min and Max Heart Rate of whole Data set
   xlim(time_in_days-2,time_in_days+2) +
