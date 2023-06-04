@@ -7,7 +7,21 @@
 
 # Libraries ---------------------------------------------------------------
 
-# Prior a installation of each package is needed
+# Prior a installation of each package is needed:
+install.packages(
+  c(
+    "hRELSA",
+    "tidyverse",
+    "janitor",
+    "readxl",
+    "ggplot2",
+    "patchwork",
+    "ggsignif",
+    "psych",
+    "car",
+    "lsr"
+  )
+)
 
 library(hRELSA)
 
@@ -19,17 +33,25 @@ library(ggplot2)
 library(patchwork)
 library(ggsignif)
 
-library(lme4)
-library(lmerTest)
-library(psych)
-library(lubridate)
-library(car)
-library(lsr)
+library(psych) # for describeBy and cor
+library(car) # for leveneTest
+library(lsr) # for cohensD
 
 # Data setup -------------------------------------------------------------
 
+# The used raw data can be found in the output folder. The data_setup.R shows,
+# how it was created. Here they just get fetched.
+
 raw <- as_tibble(read.csv("output/raw.csv")[,-1])
-double_vars <- c("hr", "pulse", "sao2", "rr", "systolicbp", "diastolicbp", "map", "temperature")
+double_vars <-
+  c("hr",
+    "pulse",
+    "sao2",
+    "rr",
+    "systolicbp",
+    "diastolicbp",
+    "map",
+    "temperature")
 raw <- raw %>% mutate(
   timepoint = as.POSIXct(timepoint, tz = ""),
   treatment = as.factor(treatment),
@@ -37,7 +59,8 @@ raw <- raw %>% mutate(
 ) %>%
   mutate(across(all_of(double_vars), as.double))
 
-raw_master_full <- as_tibble(read.csv("output/raw_master_full.csv")[,-1])
+raw_master_full <-
+  as_tibble(read.csv("output/raw_master_full.csv")[,-1])
 raw_master_full <- raw_master_full %>% mutate(
   pmid = as.factor(pmid),
   sex = as.factor(sex),
@@ -64,19 +87,43 @@ raw_norm <- read_excel("data/reference_values.xlsx", sheet = 1)
 raw_norm <- raw_norm %>% select("age", all_of(vars))
 
 # Generate day column
-raw <- hrelsa_days(raw, format = "timecode", formthis = "timepoint", newdayone = TRUE)
+raw <-
+  hrelsa_days(raw,
+              format = "timecode",
+              formthis = "timepoint",
+              newdayone = TRUE)
 
 # Format the data
-dat <- hrelsa_format(raw, id = "id", time = "time", treatment = "treatment", condition = "condition", vars = vars, included_realtime = "timepoint")
+dat <-
+  hrelsa_format(
+    raw,
+    id = "id",
+    time = "time",
+    treatment = "treatment",
+    condition = "condition",
+    vars = vars,
+    included_realtime = "timepoint"
+  )
 
 # Write dat in a csv
 write.csv(dat, file = "output/dat.csv")
 
 # Fetch data for maximal severity evaluation
 reference_dat <- dat %>% filter(treatment == "NoSepsis")
-bsl <- hrelsa_adaptive_baselines(dat, reference_dat, vars = vars, turnvars = turnvars, ambivars = ambivars, realtime = "timepoint",
-           dob_dat = raw_master_full, dob_data_id_col = 1, dob_data_dob_col = 3,
-           norm_dat = raw_norm, norm_dat_names = names(raw_norm))
+bsl <-
+  hrelsa_adaptive_baselines(
+    dat,
+    reference_dat,
+    vars = vars,
+    turnvars = turnvars,
+    ambivars = ambivars,
+    realtime = "timepoint",
+    dob_dat = raw_master_full,
+    dob_data_id_col = 1,
+    dob_data_dob_col = 3,
+    norm_dat = raw_norm,
+    norm_dat_names = names(raw_norm)
+  )
 pre <- bsl$pre
 age_pre <- bsl$age_pre
 
@@ -84,7 +131,15 @@ age_pre <- bsl$age_pre
 write.csv(pre, file = "output/pre.csv")
 
 # Generate final data
-final <- hrelsa_final(pre, bsl, drop = dropvars, turnvars = turnvars, ambivars = ambivars, zvars = zvars)
+final <-
+  hrelsa_final(
+    pre,
+    bsl,
+    drop = dropvars,
+    turnvars = turnvars,
+    ambivars = ambivars,
+    zvars = zvars
+  )
 
 # Generate some analysis
 analysis <- hrelsa_analysis(final)
@@ -120,8 +175,14 @@ max(nosepsis_desc$stay)
 sd(nosepsis_desc$stay)
 sd(sepsis_desc$stay)
 leveneTest(as.numeric(desc$stay), desc$label)
-t.test(as.numeric(nosepsis_desc$stay), as.numeric(sepsis_desc$stay), var.equal = FALSE, alternative = "two.sided")
-cohensD(as.numeric(nosepsis_desc$stay), as.numeric(sepsis_desc$stay))
+t.test(
+  as.numeric(nosepsis_desc$stay),
+  as.numeric(sepsis_desc$stay),
+  var.equal = FALSE,
+  alternative = "two.sided"
+)
+cohensD(as.numeric(nosepsis_desc$stay),
+        as.numeric(sepsis_desc$stay))
 
 
 age_pre <- arrange(age_pre, age)
@@ -132,7 +193,7 @@ mean(sepsis_age$age)
 nosepsis_age <- age_pre %>% filter(treatment == "NoSepsis")
 mean(nosepsis_age$age)
 
-entries <- as.data.frame(table(final$id))[,2]
+entries <- as.data.frame(table(final$id))[, 2]
 summary(entries)
 
 # Variables used for composite scoring ------------------------------------
@@ -158,7 +219,7 @@ table(final$id) # check entries
 which_id <- "101137"
 which_patient <- 70
 which_time <- "498480"
-time_in_days <- (as.numeric(which_time))/((60*60)*24)
+time_in_days <- (as.numeric(which_time)) / ((60 * 60) * 24)
 
 dat %>% filter(id == which_id, time == which_time)
 age_pre %>% filter(id == which_id, time == which_time)
@@ -168,107 +229,180 @@ xx <- final %>% filter(id == which_id)
 arrange(xx, rms$rms)
 
 # Plot
-which_patient_id <- as.character(unlist(final[final$id2 == which_patient, 1][1, ]))
+which_patient_id <-
+  as.character(unlist(final[final$id2 == which_patient, 1][1, ]))
 
 summary(dat$hr) # To find out min and max, replace hr with regarding variable
 
-curve0 <- final %>% 
-  filter( id2 == which_patient) %>%
-  mutate(hours = time/(60*60),
-         minutes = time/60,
-         days = time/((60*60)*24))
+curve0 <- final %>%
+  filter(id2 == which_patient) %>%
+  mutate(
+    hours = time / (60 * 60),
+    minutes = time / 60,
+    days = time / ((60 * 60) * 24)
+  )
 
 curve00 <- dat %>%
-  filter( id == which_patient_id) %>%
-  mutate(hours = time/(60*60),
-         minutes = time/60,
-         days = time/((60*60)*24))
+  filter(id == which_patient_id) %>%
+  mutate(
+    hours = time / (60 * 60),
+    minutes = time / 60,
+    days = time / ((60 * 60) * 24)
+  )
 
 point_size = 1
 line_size = 0.5
 alpha = 1
 
-p01 <-ggplot() +
+p01 <- ggplot() +
   ggtitle("A") +
-  geom_point(data = curve0, aes(x = days, y = rms$rms, color = "hRELSA"), size = point_size, alpha = alpha) +
-  geom_line(data = curve0, aes(x = days, y = rms$rms, color = "hRELSA"), size = line_size, alpha = alpha) +
+  geom_point(
+    data = curve0,
+    aes(x = days, y = rms$rms, color = "hRELSA"),
+    size = point_size,
+    alpha = alpha
+  ) +
+  geom_line(
+    data = curve0,
+    aes(x = days, y = rms$rms, color = "hRELSA"),
+    size = line_size,
+    alpha = alpha
+  ) +
   labs (x = "days", y = "hRELSA", colour = "") +
-  ylim(0,1) +
-  xlim(time_in_days-2,time_in_days+2) +
-  geom_hline(yintercept = 1,linetype = 2) +
-  geom_hline(yintercept = 0,linetype = 2) +
+  ylim(0, 1) +
+  xlim(time_in_days - 2, time_in_days + 2) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = 0, linetype = 2) +
   scale_color_manual(values = c("#FF5251")) +
   theme_classic() +
   theme(legend.position = "none")
 
-p02 <-ggplot() +
+p02 <- ggplot() +
   ggtitle("B") +
-  geom_point(data = curve00, aes(x = days, y = hr, color = "heart rate"), size = point_size, alpha = alpha) +
-  geom_line(data = curve00, aes(x = days, y = hr, color = "heart rate"), size = line_size, alpha = alpha) +
+  geom_point(
+    data = curve00,
+    aes(x = days, y = hr, color = "heart rate"),
+    size = point_size,
+    alpha = alpha
+  ) +
+  geom_line(
+    data = curve00,
+    aes(x = days, y = hr, color = "heart rate"),
+    size = line_size,
+    alpha = alpha
+  ) +
   labs (x = "days", y = "heart rate (/min)", colour = "") +
-  ylim(52,232) + # Min and Max Heart Rate of whole Data set
-  xlim(time_in_days-2,time_in_days+2) +
-  geom_hline(yintercept = 135,linetype = 2) + # Reference value
+  ylim(52, 232) + # Min and Max Heart Rate of whole Data set
+  xlim(time_in_days - 2, time_in_days + 2) +
+  geom_hline(yintercept = 135, linetype = 2) + # Reference value
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(legend.position = "none")
 
-p03 <-ggplot() +
+p03 <- ggplot() +
   ggtitle("C") +
-  geom_point(data = curve00, aes(x = days, y = sao2, color = "oxygen saturation"), size = point_size, alpha = alpha) +
-  geom_line(data = curve00, aes(x = days, y = sao2, color = "oxygen saturation"), size = line_size, alpha = alpha) +
+  geom_point(
+    data = curve00,
+    aes(x = days, y = sao2, color = "oxygen saturation"),
+    size = point_size,
+    alpha = alpha
+  ) +
+  geom_line(
+    data = curve00,
+    aes(x = days, y = sao2, color = "oxygen saturation"),
+    size = line_size,
+    alpha = alpha
+  ) +
   labs (x = "days", y = "oxygen saturation (%)", colour = "") +
-  ylim(14,100) + # Min and Max Heart Rate of whole Data set
-  xlim(time_in_days-2,time_in_days+2) +
-  geom_hline(yintercept = 100,linetype = 2) + # Reference value
+  ylim(14, 100) + # Min and Max Heart Rate of whole Data set
+  xlim(time_in_days - 2, time_in_days + 2) +
+  geom_hline(yintercept = 100, linetype = 2) + # Reference value
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(legend.position = "none")
 
-p04 <-ggplot() +
+p04 <- ggplot() +
   ggtitle("D") +
-  geom_point(data = curve00, aes(x = days, y = rr, color = "respiratory rate"), size = point_size, alpha = alpha) +
-  geom_line(data = curve00, aes(x = days, y = rr, color = "respiratory rate"), size = line_size, alpha = alpha) +
+  geom_point(
+    data = curve00,
+    aes(x = days, y = rr, color = "respiratory rate"),
+    size = point_size,
+    alpha = alpha
+  ) +
+  geom_line(
+    data = curve00,
+    aes(x = days, y = rr, color = "respiratory rate"),
+    size = line_size,
+    alpha = alpha
+  ) +
   labs (x = "days", y = "respiratory rate (/min)", colour = "") +
   ylim(0, 158) + # Min and Max Heart Rate of whole Data set
-  xlim(time_in_days-2,time_in_days+2) +
-  geom_hline(yintercept = 35,linetype = 2) + # Reference value
+  xlim(time_in_days - 2, time_in_days + 2) +
+  geom_hline(yintercept = 35, linetype = 2) + # Reference value
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(legend.position = "none")
 
-p05 <-ggplot() +
+p05 <- ggplot() +
   ggtitle("E") +
-  geom_point(data = curve00, aes(x = days, y = map, color = "mean arterial blood pressure"), size = point_size, alpha = alpha) +
-  geom_line(data = curve00, aes(x = days, y = map, color = "mean arterial blood pressure"), size = line_size, alpha = alpha) +
+  geom_point(
+    data = curve00,
+    aes(x = days, y = map, color = "mean arterial blood pressure"),
+    size = point_size,
+    alpha = alpha
+  ) +
+  geom_line(
+    data = curve00,
+    aes(x = days, y = map, color = "mean arterial blood pressure"),
+    size = line_size,
+    alpha = alpha
+  ) +
   labs (x = "days", y = "mean arterial blood pressure (mmHg)", colour = "") +
   ylim(24, 196) + # Min and Max Heart Rate of whole Data set
-  xlim(time_in_days-2,time_in_days+2) +
-  geom_hline(yintercept = 70,linetype = 2) + # Reference value
+  xlim(time_in_days - 2, time_in_days + 2) +
+  geom_hline(yintercept = 70, linetype = 2) + # Reference value
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(legend.position = "none")
 
-p06 <-ggplot() +
+p06 <- ggplot() +
   ggtitle("F") +
-  geom_point(data = curve00, aes(x = days, y = temperature, color = "temperature"), size = point_size, alpha = alpha) +
-  geom_line(data = curve00, aes(x = days, y = temperature, color = "temperature"), size = line_size, alpha = alpha) +
+  geom_point(
+    data = curve00,
+    aes(x = days, y = temperature, color = "temperature"),
+    size = point_size,
+    alpha = alpha
+  ) +
+  geom_line(
+    data = curve00,
+    aes(x = days, y = temperature, color = "temperature"),
+    size = line_size,
+    alpha = alpha
+  ) +
   labs (x = "days", y = "temperature (°C)", colour = "") +
-  ylim(31.1,40.8) + # Min and Max Heart Rate of whole Data set
-  xlim(time_in_days-2,time_in_days+2) +
-  geom_hline(yintercept = 37.3,linetype = 2) + # Reference value
+  ylim(31.1, 40.8) + # Min and Max Heart Rate of whole Data set
+  xlim(time_in_days - 2, time_in_days + 2) +
+  geom_hline(yintercept = 37.3, linetype = 2) + # Reference value
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(legend.position = "none")
 
 plot2 <- p01 +  p02 + p03 + p04 + p05 + p06
 plot2 <- plot2 + plot_layout(ncol = 3)
-ggsave("figs/figure2.tiff", plot = plot2, dpi = 300, width = 14, height = 7, units = "in", compression = "lzw")
+ggsave(
+  "figs/figure2.tiff",
+  plot = plot2,
+  dpi = 300,
+  width = 14,
+  height = 7,
+  units = "in",
+  compression = "lzw"
+)
 
 
 # The Patient with the lowest average disease severity  ------------------
 
-find_low <- final %>% 
+find_low <- final %>%
   group_by(id, treatment) %>%
   summarise(mean = mean(as.numeric(unlist(rms)), na.rm = TRUE))
 
@@ -276,80 +410,118 @@ arrange(find_low, mean)
 
 table(final$id) # check entries
 
-
-
 # Does sex influence the disease severity?  -------------------------------
 
-curve <- final %>% 
+curve <- final %>%
   group_by(id, condition) %>%
   summarise(max = max(as.numeric(unlist(rms)), na.rm = TRUE)) %>%
-  mutate(condition = factor(condition, levels = c("f","m"), labels = c("female", "male")))
+  mutate(condition = factor(
+    condition,
+    levels = c("f", "m"),
+    labels = c("female", "male")
+  ))
 
 p4 <- curve %>%
   ggplot(aes(x = condition, y = max, color = condition)) +
   geom_boxplot(outlier.shape = NA) +
-  geom_point(position = position_jitterdodge(), size = 3, alpha = 0.75) +
-  geom_hline(yintercept=1, linetype="dashed") +
-  geom_signif(comparisons = list(c("female", "male")), 
-              map_signif_level = TRUE,
-              color = c("#000000"),
-              textsize = 8,
-              annotation = "ns.") +
+  geom_point(position = position_jitterdodge(),
+             size = 3,
+             alpha = 0.75) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  geom_signif(
+    comparisons = list(c("female", "male")),
+    map_signif_level = TRUE,
+    color = c("#000000"),
+    textsize = 8,
+    annotation = "ns."
+  ) +
   labs (x = "", y = expression('hRELSA'[max])) +
   theme_classic() +
-  theme(legend.position = "none",
-        axis.text = element_text(size = 13),
-        axis.title = element_text(size = 18, face = "bold")) +
-  scale_color_manual(values = c("#1F77B4","#FF7F0E"))
+  theme(
+    legend.position = "none",
+    axis.text = element_text(size = 13),
+    axis.title = element_text(size = 18, face = "bold")
+  ) +
+  scale_color_manual(values = c("#1F77B4", "#FF7F0E"))
 p4
 
-ggsave("figs/figure4.tiff", plot = p4, dpi = 300, compression = "lzw")
+ggsave(
+  "figs/figure4.tiff",
+  plot = p4,
+  dpi = 300,
+  compression = "lzw"
+)
 
 # Statistics
 describeBy(curve$max, curve$condition)
 leveneTest(curve$max, curve$condition)  # Same VAR
-t.test(max ~ condition, data = curve, var.equal = TRUE, alternative = "two.sided")
+t.test(
+  max ~ condition,
+  data = curve,
+  var.equal = TRUE,
+  alternative = "two.sided"
+)
 
 cohensD(max ~ condition, data = curve)
 
 # Comparison of non-septic and septic patients in terms of highest severity --------
 
-curve <- final %>% 
+curve <- final %>%
   group_by(id, treatment) %>%
   summarise(max = max(as.numeric(unlist(rms)), na.rm = TRUE)) %>%
-  mutate(treatment = factor(treatment, levels = c("NoSepsis","Sepsis"), labels = c("No Sepsis", "Sepsis")))
+  mutate(treatment = factor(
+    treatment,
+    levels = c("NoSepsis", "Sepsis"),
+    labels = c("No Sepsis", "Sepsis")
+  ))
 
 # Figure 5
 p5 <- curve %>%
   ggplot(aes(x = treatment, y = max, color = treatment)) +
   geom_boxplot(outlier.shape = NA) +
-  geom_point(position = position_jitterdodge(), size = 3, alpha = 0.75) +
-  geom_hline(yintercept=1, linetype="dashed") +
-  geom_signif(comparisons = list(c("No Sepsis", "Sepsis")), 
-              map_signif_level = TRUE,
-              color = c("#000000"),
-              textsize = 5,
-              annotation = "****") +
+  geom_point(position = position_jitterdodge(),
+             size = 3,
+             alpha = 0.75) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  geom_signif(
+    comparisons = list(c("No Sepsis", "Sepsis")),
+    map_signif_level = TRUE,
+    color = c("#000000"),
+    textsize = 5,
+    annotation = "****"
+  ) +
   labs (x = "", y = expression('hRELSA'[max])) +
   theme_classic() +
-  theme(legend.position = "none",
-        axis.text = element_text(size = 13),
-        axis.title = element_text(size = 18, face = "bold")) +
-  scale_color_manual(values = c("#1F77B4","#FF7F0E"))
+  theme(
+    legend.position = "none",
+    axis.text = element_text(size = 13),
+    axis.title = element_text(size = 18, face = "bold")
+  ) +
+  scale_color_manual(values = c("#1F77B4", "#FF7F0E"))
 p5
 
-ggsave("figs/figure5.tiff", plot = p5, dpi = 300, compression = "lzw")
+ggsave(
+  "figs/figure5.tiff",
+  plot = p5,
+  dpi = 300,
+  compression = "lzw"
+)
 
 # Statistics
 describeBy(curve$max, curve$treatment)
 leveneTest(curve$max, curve$treatment)  # Same VAR
-t.test(max ~ treatment, data = curve, var.equal = TRUE, alternative = "two.sided")
+t.test(
+  max ~ treatment,
+  data = curve,
+  var.equal = TRUE,
+  alternative = "two.sided"
+)
 
 levels(curve$treatment) <- c("NoSepsis", "Sepsis", NA)
 cohensD(max ~ treatment, data = curve)
 
 # Figure 6
-curve <- final %>% 
+curve <- final %>%
   group_by(id, treatment)
 
 sorted_IDs <- reorder(final$id, final$rms$rms, FUN = max)
@@ -357,48 +529,75 @@ sorted_IDs <- reorder(final$id, final$rms$rms, FUN = max)
 p6 <- curve %>%
   ggplot(aes(x = sorted_IDs, y = rms$rms, color = treatment)) +
   geom_boxplot(outlier.shape = NA) +
-  geom_hline(yintercept=1, linetype="dashed") +
+  geom_hline(yintercept = 1, linetype = "dashed") +
   labs (x = "", y = "hRELSA") +
   theme_classic() +
-  theme(legend.position = "none",
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.text.y = element_text(size = 13),
-        axis.title.y = element_text(size = 18)) +
-  scale_color_manual(values = c("#1F77B4","#FF7F0E"))
+  theme(
+    legend.position = "none",
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.y = element_text(size = 13),
+    axis.title.y = element_text(size = 18)
+  ) +
+  scale_color_manual(values = c("#1F77B4", "#FF7F0E"))
 p6
 
-ggsave("figs/figure6.tiff", plot = p6, dpi = 300, compression = "lzw")
+ggsave(
+  "figs/figure6.tiff",
+  plot = p6,
+  dpi = 300,
+  compression = "lzw"
+)
 
 #Figure 7
-curve <- final %>% 
+curve <- final %>%
   group_by(id, treatment) %>%
   summarise(mean = mean(as.numeric(unlist(rms)), na.rm = TRUE)) %>%
-  mutate(treatment = factor(treatment, levels = c("NoSepsis","Sepsis"), labels = c("No Sepsis", "Sepsis")))
+  mutate(treatment = factor(
+    treatment,
+    levels = c("NoSepsis", "Sepsis"),
+    labels = c("No Sepsis", "Sepsis")
+  ))
 
 p7 <- curve %>%
   ggplot(aes(x = treatment, y = mean, color = treatment)) +
   geom_boxplot(outlier.shape = NA) +
-  geom_point(position = position_jitterdodge(), size = 3, alpha = 0.75) +
-  geom_hline(yintercept=1, linetype="dashed") +
-  geom_signif(comparisons = list(c("No Sepsis", "Sepsis")), 
-              map_signif_level = TRUE,
-              color = c("#000000"),
-              textsize = 5,
-              annotation = "*") +
+  geom_point(position = position_jitterdodge(),
+             size = 3,
+             alpha = 0.75) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  geom_signif(
+    comparisons = list(c("No Sepsis", "Sepsis")),
+    map_signif_level = TRUE,
+    color = c("#000000"),
+    textsize = 5,
+    annotation = "*"
+  ) +
   labs (x = "", y = expression('hRELSA'[mean])) +
   theme_classic() +
-  theme(legend.position = "none",
-        axis.text = element_text(size = 13),
-        axis.title = element_text(size = 18, face = "bold")) +
-  scale_color_manual(values = c("#1F77B4","#FF7F0E"))
+  theme(
+    legend.position = "none",
+    axis.text = element_text(size = 13),
+    axis.title = element_text(size = 18, face = "bold")
+  ) +
+  scale_color_manual(values = c("#1F77B4", "#FF7F0E"))
 p7
 
-ggsave("figs/figure7.tiff", plot = p7, dpi = 300, compression = "lzw")
+ggsave(
+  "figs/figure7.tiff",
+  plot = p7,
+  dpi = 300,
+  compression = "lzw"
+)
 
 describeBy(curve$mean, curve$treatment)
 leveneTest(curve$mean, curve$treatment)  # Same VAR
-t.test(mean ~ treatment, data = curve, var.equal = TRUE, alternative = "two.sided")
+t.test(
+  mean ~ treatment,
+  data = curve,
+  var.equal = TRUE,
+  alternative = "two.sided"
+)
 
 levels(curve$treatment) <- c("NoSepsis", "Sepsis", NA)
 cohensD(mean ~ treatment, data = curve)
@@ -408,29 +607,37 @@ cohensD(mean ~ treatment, data = curve)
 # Calculate the POPS score with oxygen saturation, heart rate, resp. rate and temperature
 dat$pops <- 0
 for (s in 1:nrow(dat)) {
-  pops <- 0
-  if (dat$sao2[s] < 94 & dat$sao2[s] >= 90) {
-    pops <- pops + 1
-  } else if (dat$sao2[s] < 90) {
-    pops <- pops + 2
-  }
-  
-  if ((dat$hr[s] < 110 & dat$hr[s] >= 90) | (dat$hr[s] > 160 & dat$hr[s] <= 180)) {
-    pops <- pops + 1
-  } else if (dat$hr[s] < 90 | dat$hr[s] > 180) {
-    pops <- pops + 2
-  }
-  
-  if ((dat$rr[s] < 30 & dat$rr[s] >= 25) | (dat$rr[s] > 40 & dat$rr[s] <= 50)) {
-    pops <- pops + 1
-  } else if (dat$rr[s] < 25 | dat$rr[s] > 50) {
-    pops <- pops + 2
-  }
-  
-  if ((dat$temperature[s] < 36 & dat$temperature[s] >= 35) | (dat$temperature[s] > 37.5 & dat$temperature[s] <= 39)) {
-    pops <- pops + 1
-  } else if (dat$temperature[s] < 35 | dat$temperature[s] > 39) {
-    pops <- pops + 2
+  if (anyNA(dat[s, ])) {
+    pops <- NA
+  } else {
+    pops <- 0
+    if (dat$sao2[s] < 94 & dat$sao2[s] >= 90) {
+      pops <- pops + 1
+    } else if (dat$sao2[s] < 90) {
+      pops <- pops + 2
+    }
+    
+    if ((dat$hr[s] < 110 &
+         dat$hr[s] >= 90) | (dat$hr[s] > 160 & dat$hr[s] <= 180)) {
+      pops <- pops + 1
+    } else if (dat$hr[s] < 90 | dat$hr[s] > 180) {
+      pops <- pops + 2
+    }
+    
+    if ((dat$rr[s] < 30 &
+         dat$rr[s] >= 25) | (dat$rr[s] > 40 & dat$rr[s] <= 50)) {
+      pops <- pops + 1
+    } else if (dat$rr[s] < 25 | dat$rr[s] > 50) {
+      pops <- pops + 2
+    }
+    
+    if ((dat$temperature[s] < 36 &
+         dat$temperature[s] >= 35) |
+        (dat$temperature[s] > 37.5 & dat$temperature[s] <= 39)) {
+      pops <- pops + 1
+    } else if (dat$temperature[s] < 35 | dat$temperature[s] > 39) {
+      pops <- pops + 2
+    }
   }
   
   dat$pops[s] <- pops
@@ -438,34 +645,48 @@ for (s in 1:nrow(dat)) {
 
 # Figure 8
 curve0 <- final %>%
-  mutate(hours = round(time/(60*60), digits = 0),
-         minutes = round(time/60, digits = 0),
-         days = round(time/((60*60)*24))) %>%
+  mutate(
+    hours = round(time / (60 * 60), digits = 0),
+    minutes = round(time / 60, digits = 0),
+    days = round(time / ((60 * 60) * 24))
+  ) %>%
   group_by(treatment, id) %>%
   summarise(max = max(as.numeric(unlist(rms)), na.rm = TRUE))
 
 curve00 <- dat %>%
-  mutate(hours = round(time/(60*60), digits = 0),
-         minutes = round(time/60, digits = 0),
-         days = round(time/((60*60)*24))) %>%
+  mutate(
+    hours = round(time / (60 * 60), digits = 0),
+    minutes = round(time / 60, digits = 0),
+    days = round(time / ((60 * 60) * 24))
+  ) %>%
   group_by(treatment, id) %>%
   summarise(max = max(as.numeric(pops), na.rm = TRUE))
 
 popstest <- lm(curve0$max ~ curve00$max)
 summary(popstest)
 
-p8 <- ggplot(fortify(popstest), aes(x = curve00$max, y = curve0$max)) +
+p8 <-
+  ggplot(fortify(popstest), aes(x = curve00$max, y = curve0$max)) +
   geom_point(size = 3, alpha = 0.75) +
   geom_smooth(method = "lm", color = "#1F77B4") +
-  geom_hline(yintercept=1, linetype="dashed") +
-  ylim(0,1) +
-  xlim(0,8) +
-  labs (x = "highest POPS", y = expression('hRELSA'[max]), color = "") +
-  scale_color_manual(values = c( "#1F77B4")) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  ylim(0, 1) +
+  xlim(0, 8) +
+  labs (x = "highest POPS",
+        y = expression('hRELSA'[max]),
+        color = "") +
+  scale_color_manual(values = c("#1F77B4")) +
   theme_classic() +
-  theme(legend.position = "none",
-        axis.text = element_text(size = 13),
-        axis.title = element_text(size = 18))
+  theme(
+    legend.position = "none",
+    axis.text = element_text(size = 13),
+    axis.title = element_text(size = 18)
+  )
 p8
 
-ggsave("figs/figure8.tiff", plot = p8, dpi = 300, compression = "lzw")
+ggsave(
+  "figs/figure8.tiff",
+  plot = p8,
+  dpi = 300,
+  compression = "lzw"
+)
