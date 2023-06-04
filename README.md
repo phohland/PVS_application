@@ -4,8 +4,8 @@ This GitHub repository enables the user to apply the hRELSA code with the given 
 
 ## Table of contents
 
-- [Get started](#Get started)
-- [Output and figures](#Output and figures)
+- Get started
+- Output and figures
 
 ## Get started
 
