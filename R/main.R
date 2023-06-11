@@ -8,21 +8,21 @@
 # Libraries ---------------------------------------------------------------
 
 # Prior a installation of each package is needed:
-install.packages(
-  c(
-    "hRELSA",
-    "tidyverse",
-    "janitor",
-    "readxl",
-    "ggplot2",
-    "patchwork",
-    "ggsignif",
-    "psych",
-    "car",
-    "lsr",
-    "BSDA"
-  )
-)
+# install.packages(
+#   c(
+#     "hRELSA",
+#     "tidyverse",
+#     "janitor",
+#     "readxl",
+#     "ggplot2",
+#     "patchwork",
+#     "ggsignif",
+#     "psych",
+#     "car",
+#     "lsr",
+#     "BSDA"
+#   )
+# )
 
 library(hRELSA)
 
@@ -73,7 +73,49 @@ raw_master_full <- raw_master_full %>% mutate(
   label = as.factor(label)
 )
 
+# SIRS labels
+sirs <-
+  read.csv(
+    "data/SIRS_label.csv",
+    sep = ";",
+    header = TRUE,
+    dec = ".",
+    row.names = NULL
+  )
+sirs <- as_tibble(sirs)
+names(sirs)[1] <- "pmid"
+names(sirs)[3] <- "start"
+names(sirs)[4] <- "end"
+sirs <- sirs %>%
+  select("pmid", "start", "end") %>%
+  clean_names %>%
+  mutate(
+    pmid = as.factor(pmid),
+    start = as.POSIXct(start, tz = ""),
+    end = as.POSIXct(end, tz = ""),
+  )
+
+# Adds SIRS TRUE or FALSE to each entry in raw
+raw$sirs <- FALSE
+
+for (i in 1:nrow(raw)) {
+  if (raw$id[i] %in% sirs$pmid) {
+    for (o in 1:nrow(sirs)) {
+      if (sirs$pmid[o] == raw$id[i]) {
+        if (raw$timepoint[i] >= sirs$start[o] & raw$timepoint[i] <= sirs$end[o]) {
+          raw$sirs[i] <- TRUE
+        }
+      }
+    }
+  }
+}
+
 # hRELSA  -----------------------------------------------------------------
+
+# SIRS label setup
+sirs_ids <- unique(raw$id[raw$sirs == TRUE])
+raw$treatment <- "NoSIRS"
+raw$treatment[raw$id %in% sirs_ids] <- "SIRS"
 
 # Select the variables to use the hRELSA with
 vars <- c("hr", "sao2", "rr", "map", "temperature")
@@ -111,7 +153,7 @@ dat <-
 write.csv(dat, file = "output/dat.csv")
 
 # Fetch data for maximal severity evaluation
-reference_dat <- dat %>% filter(treatment == "NoSepsis")
+reference_dat <- dat %>% filter(treatment == "NoSIRS")
 bsl <-
   hrelsa_adaptive_baselines(
     dat,
@@ -185,28 +227,6 @@ temp_reg <-
     row.names = NULL
   )
 regulated_ids <- unique(temp_reg$PMID)
-
-# SIRS labels (duration)
-sirs <-
-  read.csv(
-    "data/SIRS_label.csv",
-    sep = ";",
-    header = TRUE,
-    dec = ".",
-    row.names = NULL
-  )
-sirs <- as_tibble(sirs)
-names(sirs)[1] <- "pmid"
-names(sirs)[3] <- "start"
-names(sirs)[4] <- "end"
-sirs <- sirs %>%
-  select("pmid", "start", "end") %>%
-  clean_names %>%
-  mutate(
-    pmid = as.factor(pmid),
-    start = as.POSIXct(start, tz = ""),
-    end = as.POSIXct(end, tz = ""),
-  )
 
 # Sepsis labels (duration)
 sepsis <-
@@ -366,6 +386,14 @@ mean(nosepsis_age$age)
 entries <- as.data.frame(table(final$id))[, 2]
 summary(entries)
 
+#Variables
+summary(dat$hr)
+
+#Labels (First run further calculations to generate the variables)
+# sirs_ids
+# proven_sepsis_ids
+# sus_ids
+
 # Variables used for composite scoring ------------------------------------
 
 # Please note:
@@ -380,14 +408,14 @@ summary(entries)
 
 analysis
 
-# The Patient with the highest severity value  ---------------------------
+# The Patients with the highest severity value  ---------------------------
 
 analysis # To find out the patient with the highest severity
 
 table(final$id) # check entries
 
-which_id <- "101137"
-which_time <- "498480"
+which_id <- "101137" #100803 and 101137
+which_time <- "498480" #10380 and 498480
 
 dat %>% filter(id == which_id, time == which_time)
 age_pre %>% filter(id == which_id, time == which_time)
@@ -397,6 +425,8 @@ xx <- final %>% filter(id == which_id)
 arrange(xx, rms$rms)
 
 # Create Plot with Use Case Creator at the bottom of this script
+# Figure 2 100803
+# Figure 3 101137
 
 # The Patient with the lowest average disease severity  ------------------
 
@@ -406,9 +436,27 @@ find_low <- final %>%
 
 arrange(find_low, mean)
 
+# 100419 (but too few entries), 101130
+
 table(final$id) # check entries
 
 # Create Plot with Use Case Creator at the bottom of this script
+# Figure 4 101130
+
+# The Patient with the highest average disease severity  ------------------
+
+find_high <- final %>%
+  group_by(id, treatment) %>%
+  summarise(mean = mean(as.numeric(unlist(rms)), na.rm = TRUE))
+
+arrange(find_high, desc(mean))
+
+# 100846
+
+table(final$id) # check entries
+
+# Create Plot with Use Case Creator at the bottom of this script
+# Figure 5 100846
 
 # Does sex influence the disease severity?  -------------------------------
 
@@ -421,7 +469,7 @@ curve <- final %>%
     labels = c("female", "male")
   ))
 
-p4 <- curve %>%
+p6 <- curve %>%
   ggplot(aes(x = condition, y = max, color = condition)) +
   geom_boxplot(outlier.shape = NA) +
   geom_point(position = position_jitterdodge(),
@@ -443,10 +491,10 @@ p4 <- curve %>%
     axis.title = element_text(size = 18, face = "bold")
   ) +
   scale_color_manual(values = c("#1F77B4", "#FF7F0E"))
-p4
+p6
 
 ggsave(
-  "figs/figure4.tiff",
+  "figs/figure6.tiff",
   plot = p4,
   dpi = 300,
   compression = "lzw"
@@ -496,7 +544,7 @@ px1 <- curve %>%
     map_signif_level = TRUE,
     color = c("#000000"),
     textsize = 5,
-    annotation = "****"
+    annotation = "***"
   ) +
   labs (x = "", y = expression('PVS'[max])) +
   theme_classic() +
@@ -638,7 +686,7 @@ labelcomparison <- labelcomparison + plot_layout(ncol = 3)
 labelcomparison
 
 ggsave(
-  "figs/figure2.tiff",
+  "figs/figure7.tiff",
   plot = labelcomparison,
   dpi = 300,
   width = 14,
@@ -647,7 +695,7 @@ ggsave(
   compression = "lzw"
 )
 
-# Figure 6
+# Figure 8
 sirs_ids <- unique(final$id[final$sirs == TRUE])
 curve <- final
 curve$treatment <- NULL
@@ -664,7 +712,7 @@ curve <- curve %>%
 
 sorted_IDs <- reorder(curve$id, curve$rms$rms, FUN = max)
 
-p6 <- curve %>%
+p8 <- curve %>%
   ggplot(aes(x = sorted_IDs, y = rms$rms, color = treatment)) +
   geom_boxplot(outlier.shape = NA) +
   geom_hline(yintercept = 1, linetype = "dashed") +
@@ -678,10 +726,10 @@ p6 <- curve %>%
     axis.title.y = element_text(size = 18)
   ) +
   scale_color_manual(values = c("#1F77B4", "#FF7F0E"))
-p6
+p8
 
 ggsave(
-  "figs/figure6.tiff",
+  "figs/figure8.tiff",
   plot = p6,
   dpi = 300,
   compression = "lzw"
@@ -728,7 +776,7 @@ for (s in 1:nrow(dat)) {
   dat$pops[s] <- pops
 }
 
-# Figure 8
+# Figure 9
 curve0 <- final %>%
   mutate(
     hours = round(time / (60 * 60), digits = 0),
@@ -750,7 +798,7 @@ curve00 <- dat %>%
 popstest <- lm(curve0$max ~ curve00$max)
 summary(popstest)
 
-p8 <-
+p9 <-
   ggplot(fortify(popstest), aes(x = curve00$max, y = curve0$max)) +
   geom_point(size = 3, alpha = 0.75) +
   geom_smooth(method = "lm", color = "#1F77B4") +
@@ -758,7 +806,7 @@ p8 <-
   ylim(0, 1) +
   xlim(0, 8) +
   labs (x = "highest POPS",
-        y = expression('hRELSA'[max]),
+        y = expression('PVS'[max]),
         color = "") +
   scale_color_manual(values = c("#1F77B4")) +
   theme_classic() +
@@ -767,10 +815,10 @@ p8 <-
     axis.text = element_text(size = 13),
     axis.title = element_text(size = 18)
   )
-p8
+p9
 
 ggsave(
-  "figs/figure8.tiff",
+  "figs/figure9.tiff",
   plot = p8,
   dpi = 300,
   compression = "lzw"
@@ -1119,7 +1167,7 @@ maxlast <- maxlast + plot_layout(ncol = 3)
 maxlast
 
 ggsave(
-  "figs/figure2.tiff",
+  "figs/figure10.tiff",
   plot = maxlast,
   dpi = 300,
   width = 14,
@@ -1134,7 +1182,7 @@ ggsave(
 # Use Case Generator ------------------------------------------------------
 
 #Settings
-which_id <- "100419"
+which_id <- "100846"
 plot_names <- c("A", "B", "C", "D", "E", "F")
 
 line_size = 1.5
@@ -1262,12 +1310,12 @@ usecase <- p01 +  p02 + p03 + p04 + p05 + p06
 usecase <- usecase + plot_layout(ncol = 3)
 usecase
 
-# ggsave(
-#   "figs/figure2.tiff",
-#   plot = usecase,
-#   dpi = 300,
-#   width = 14,
-#   height = 7,
-#   units = "in",
-#   compression = "lzw"
-# )
+ggsave(
+  "figs/figure3new3.tiff",
+  plot = usecase,
+  dpi = 300,
+  width = 14,
+  height = 7,
+  units = "in",
+  compression = "lzw"
+)
