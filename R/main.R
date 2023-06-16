@@ -1,6 +1,6 @@
 #'
-#' hRELSA:
-#' A translational approach to quantify a patient’s disease severity in real-time
+#' PVS:
+#' Quantifying patient vital status: a translational composite score
 #'
 #' R file to reproduce the data and figures
 #'
@@ -110,7 +110,7 @@ for (i in 1:nrow(raw)) {
   }
 }
 
-# hRELSA  -----------------------------------------------------------------
+# PVS  -----------------------------------------------------------------
 
 # SIRS label setup
 sirs_ids <- unique(raw$id[raw$sirs == TRUE])
@@ -901,12 +901,8 @@ pm1 <- curve00 %>%
              alpha = 0.75) +
   geom_hline(yintercept = 1, linetype = "dashed") +
   geom_signif(
-    comparisons = list(c("max", "last")),
-    map_signif_level = TRUE,
-    color = c("#000000"),
-    textsize = 5,
-    annotation = "****"
-  ) +
+    y_position = c(1.05, 1.05), xmin = c(0.8, 1.8), xmax = c(1.2, 2.2),
+    annotation = c("****", "****"), tip_length = 0.03, color = "black") +
   labs (x = "", y = "PVS", color = "PVS type") +
   theme_classic() +
   theme(
@@ -982,13 +978,10 @@ pm2 <- curve00 %>%
              size = 3,
              alpha = 0.75) +
   geom_hline(yintercept = 1, linetype = "dashed") +
-  # geom_signif(
-  #   comparisons = list(c("max", "last")),
-  #   map_signif_level = TRUE,
-  #   color = c("#000000"),
-  #   textsize = 5,
-  #   annotation = "****"
-  # ) +
+  geom_signif(
+    y_position = c(1.05, 1.05), xmin = c(0.8, 1.8), xmax = c(1.2, 2.2),
+    annotation = c("****", "****"), tip_length = 0.03, color = "black") +
+  labs (x = "", y = "PVS", color = "PVS type") +
   labs (x = "", y = "PVS", color = "PVS type") +
   theme_classic() +
   theme(
@@ -1064,13 +1057,10 @@ pm3 <- curve00 %>%
              size = 3,
              alpha = 0.75) +
   geom_hline(yintercept = 1, linetype = "dashed") +
-  # geom_signif(
-  #   comparisons = list(c("max", "last")),
-  #   map_signif_level = TRUE,
-  #   color = c("#000000"),
-  #   textsize = 5,
-  #   annotation = "****"
-  # ) +
+  geom_signif(
+    y_position = c(1.05, 1.05), xmin = c(0.8, 1.8), xmax = c(1.2, 2.2),
+    annotation = c("****", "****"), tip_length = 0.03, color = "black") +
+  labs (x = "", y = "PVS", color = "PVS type") +
   labs (x = "", y = "PVS", color = "PVS type") +
   theme_classic() +
   theme(
@@ -1216,6 +1206,123 @@ ggsave(
   dpi = 300,
   compression = "lzw"
 )
+
+# Working with simulated data ---------------------------------------------
+
+#Simultate data of a 10 year old (Random-Walk-Model)
+library(forecast)
+
+n_entries <- 500
+normal_values <- c(hr = 90, sao2 = 100, rr = 19.5, map = 75, temperature = 37.3)
+sd_values <- c(hr = 5, sao2 = 2.5, rr = 5, map = 5, temperature = 0.25)
+outlier_prob <- 0.005  # Probability of having an outlier in each iteration
+
+sim_dat <- data.frame(
+  id = rep("Sim", n_entries),
+  treatment = rep("Sim", n_entries),
+  condition = rep("Sim", n_entries),
+  time = seq(0, by = 60, length.out = n_entries),  # Create time values at 60-second intervals
+  hr = rep(NA, n_entries),
+  sao2 = rep(NA, n_entries),
+  rr = rep(NA, n_entries),
+  map = rep(NA, n_entries),
+  temperature = rep(NA, n_entries)
+)
+
+start_time <- as.POSIXct("2023-01-01 00:00:00", format = "%Y-%m-%d %H:%M:%S")
+sim_dat$timepoint <- start_time + sim_dat$time
+
+set.seed(123)
+for (i in 1:n_entries) {
+  if (i == 1) {
+    sim_dat$hr[i] <- normal_values["hr"]
+    sim_dat$sao2[i] <- normal_values["sao2"]
+    sim_dat$rr[i] <- normal_values["rr"]
+    sim_dat$map[i] <- normal_values["map"]
+    sim_dat$temperature[i] <- normal_values["temperature"]
+  } else {
+    # Generate a random number to determine if an outlier occurs
+    if (runif(1) < outlier_prob) {
+      # Generate an outlier value outside the usual range
+      sim_dat$hr[i] <- rnorm(1, mean = normal_values["hr"], sd = sd_values["hr"] * 2.5)
+      sim_dat$sao2[i] <- rnorm(1, mean = normal_values["sao2"], sd = sd_values["sao2"] * 2.5)
+      sim_dat$rr[i] <- rnorm(1, mean = normal_values["rr"], sd = sd_values["rr"] * 2.5)
+      sim_dat$map[i] <- rnorm(1, mean = normal_values["map"], sd = sd_values["map"] * 2.5)
+      sim_dat$temperature[i] <- rnorm(1, mean = normal_values["temperature"], sd = sd_values["temperature"] * 2.5)
+    } else {
+      # Generate a value within the normal range
+      sim_dat$hr[i] <- rnorm(1, mean = normal_values["hr"], sd = sd_values["hr"])
+      sim_dat$sao2[i] <- rnorm(1, mean = normal_values["sao2"], sd = sd_values["sao2"])
+      sim_dat$rr[i] <- rnorm(1, mean = normal_values["rr"], sd = sd_values["rr"])
+      sim_dat$map[i] <- rnorm(1, mean = normal_values["map"], sd = sd_values["map"])
+      sim_dat$temperature[i] <- rnorm(1, mean = normal_values["temperature"], sd = sd_values["temperature"])
+    }
+  }
+  
+  # Cap the sao2 value at 100%
+  sim_dat$sao2[i] <- min(sim_dat$sao2[i], 100)
+}
+
+sim_raw_master_full <- raw_master_full
+sim_raw_master_full$pmid <- as.character(sim_raw_master_full$pmid)
+sim_raw_master_full$sex <- as.character(sim_raw_master_full$sex)
+sim_raw_master_full <- rbind(
+  sim_raw_master_full,
+  data.frame(
+    pmid = "Sim",
+    sex = "x",
+    date_of_birth = as.Date("2013-01-01"),
+    date_of_die = NA,
+    admission = as.Date("2023-01-01"),
+    discharge = as.Date("2023-01-02"),
+    label = "Sim"
+  )
+)
+
+sim_raw_master_full$pmid <- as.factor(sim_raw_master_full$pmid)
+sim_raw_master_full$sex <- as.factor(sim_raw_master_full$sex)
+
+sim_dat <- rbind(dat[-11], sim_dat)
+
+#PVS
+sim_bsl <-
+  hrelsa_adaptive_baselines(
+    sim_dat,
+    reference_dat,
+    vars = vars,
+    turnvars = turnvars,
+    ambivars = ambivars,
+    realtime = "timepoint",
+    dob_dat = sim_raw_master_full,
+    dob_data_id_col = 1,
+    dob_data_dob_col = 3,
+    norm_dat = raw_norm,
+    norm_dat_names = names(raw_norm)
+  )
+sim_pre <- sim_bsl$pre
+sim_age_pre <- sim_bsl$age_pre
+
+# Generate final data
+sim_final <-
+  hrelsa_final(
+    sim_pre,
+    bsl,
+    drop = dropvars,
+    turnvars = turnvars,
+    ambivars = ambivars,
+    zvars = zvars
+  )
+
+# Generate some analysis
+sim_analysis <- hrelsa_analysis(sim_final)
+
+#Statistics
+sim1 <- sim_dat %>% filter(id == "Sim")
+sim2 <- sim_final %>% filter(id == "Sim")
+
+mean(sim2$rms$rms)
+max(sim2$rms$rms)
+min(sim2$rms$rms)
 
 # Use Case Generator ------------------------------------------------------
 
@@ -1478,6 +1585,146 @@ usecase
 
 ggsave(
   "figs/suppmaterial5.tiff",
+  plot = usecase,
+  dpi = 300,
+  width = 14,
+  height = 7,
+  units = "in",
+  compression = "lzw"
+)
+# Use Case Generator (Sim) ------------------------------------------------------
+
+#Settings
+which_id <- "Sim"
+plot_names <- c("A", "B", "C", "D", "E", "F")
+
+line_size = 1.5
+
+# Plot
+curve0 <- sim_final %>%
+  filter(id == which_id) %>%
+  mutate(count = row_number())
+
+curve00 <- sim_dat %>%
+  filter(id == which_id) %>%
+  mutate(count = row_number())
+
+line_size = 1.5
+
+p01 <- ggplot() +
+  ggtitle(plot_names[1]) +
+  geom_line(
+    data = curve0,
+    aes(x = count, y = rms$rms, color = "PVS"),
+    size = line_size
+  ) +
+  labs (x = "time", y = "PVS", colour = "") +
+  ylim(0, 1) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  scale_color_manual(values = c("#FF5251")) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_blank()
+  )
+
+p02 <- ggplot() +
+  ggtitle(plot_names[2]) +
+  geom_line(
+    data = curve00,
+    aes(x = count, y = hr),
+    size = line_size
+  ) +
+  labs (x = "time", y = "heart rate") +
+  ylim(min(sim_dat$hr, na.rm = TRUE), max(sim_dat$hr, na.rm = TRUE)) +
+  geom_hline(yintercept = 90, linetype = 2) +
+  scale_color_manual(values = c("black")) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_blank()
+  )
+
+p03 <- ggplot() +
+  ggtitle(plot_names[3]) +
+  geom_line(
+    data = curve00,
+    aes(x = count, y = sao2),
+    size = line_size
+  ) +
+  labs (x = "time", y = "oxygen saturation") +
+  ylim(min(sim_dat$sao2, na.rm = TRUE), max(sim_dat$sao2, na.rm = TRUE)) +
+  geom_hline(yintercept = 100, linetype = 2) +
+  scale_color_manual(values = c("black")) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_blank()
+  )
+
+p04 <- ggplot() +
+  ggtitle(plot_names[4]) +
+  geom_line(
+    data = curve00,
+    aes(x = count, y = rr),
+    size = line_size
+  ) +
+  labs (x = "time", y = "respiratory rate") +
+  ylim(min(sim_dat$rr, na.rm = TRUE), max(sim_dat$rr, na.rm = TRUE)) +
+  geom_hline(yintercept = 19.5, linetype = 2) +
+  scale_color_manual(values = c("black")) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_blank()
+  )
+
+p05 <- ggplot() +
+  ggtitle(plot_names[5]) +
+  geom_line(
+    data = curve00,
+    aes(x = count, y = map),
+    size = line_size
+  ) +
+  labs (x = "time", y = "mean arterial pressure") +
+  ylim(min(sim_dat$map, na.rm = TRUE), max(sim_dat$map, na.rm = TRUE)) +
+  geom_hline(yintercept = 75, linetype = 2) +
+  scale_color_manual(values = c("black")) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_blank()
+  )
+
+p06 <- ggplot() +
+  ggtitle(plot_names[6]) +
+  geom_line(
+    data = curve00,
+    aes(x = count, y = temperature),
+    size = line_size
+  ) +
+  labs (x = "time", y = "temperature") +
+  ylim(min(sim_dat$temperature, na.rm = TRUE), max(sim_dat$temperature, na.rm = TRUE)) +
+  geom_hline(yintercept = 37.3, linetype = 2) +
+  scale_color_manual(values = c("black")) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_blank()
+  )
+
+usecase <- p01 +  p02 + p03 + p04 + p05 + p06
+usecase <- usecase + plot_layout(ncol = 3)
+usecase
+
+ggsave(
+  "figs/figure10.tiff",
   plot = usecase,
   dpi = 300,
   width = 14,
