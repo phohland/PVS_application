@@ -338,6 +338,8 @@ final$medication[matching_indices] <- matching_rows
 
 desc <- raw_master_full
 desc$stay <- desc$discharge - desc$admission
+desc$label <- "NoSIRS"
+desc$label[desc$pmid %in% sirs_ids] <- "SIRS"
 
 length(unique(desc$pmid))
 summary(desc$sex)
@@ -349,28 +351,26 @@ median(desc$stay)
 min(desc$stay)
 max(desc$stay)
 
-sepsis_desc <- desc %>% filter(label == "Sepsis")
+sepsis_desc <- desc %>% filter(label == "SIRS")
 mean(sepsis_desc$stay)
 median(sepsis_desc$stay)
 min(sepsis_desc$stay)
 max(sepsis_desc$stay)
 
-nosepsis_desc <- desc %>% filter(label == "NoSepsis")
+nosepsis_desc <- desc %>% filter(label == "NoSIRS")
 mean(nosepsis_desc$stay)
 median(nosepsis_desc$stay)
 min(nosepsis_desc$stay)
 max(nosepsis_desc$stay)
 
-
-sd(nosepsis_desc$stay)
-sd(sepsis_desc$stay)
-leveneTest(as.numeric(desc$stay), desc$label)
-t.test(
-  as.numeric(nosepsis_desc$stay),
-  as.numeric(sepsis_desc$stay),
-  var.equal = FALSE,
+z.test(
+  x = nosepsis_desc$stay,
+  y = sepsis_desc$stay,
+  sigma.x = sd(nosepsis_desc$stay, na.rm = TRUE),
+  sigma.y = sd(sepsis_desc$stay, na.rm = TRUE),
   alternative = "two.sided"
 )
+
 cohensD(as.numeric(nosepsis_desc$stay),
         as.numeric(sepsis_desc$stay))
 
@@ -378,21 +378,25 @@ cohensD(as.numeric(nosepsis_desc$stay),
 age_pre <- arrange(age_pre, age)
 age_pre <- arrange(age_pre, desc(age))
 
-sepsis_age <- age_pre %>% filter(treatment == "Sepsis")
+sepsis_age <- age_pre %>% filter(treatment == "SIRS")
 mean(sepsis_age$age)
-nosepsis_age <- age_pre %>% filter(treatment == "NoSepsis")
+nosepsis_age <- age_pre %>% filter(treatment == "NoSIRS")
 mean(nosepsis_age$age)
 
 entries <- as.data.frame(table(final$id))[, 2]
 summary(entries)
 
-#Variables
-summary(dat$hr)
-
 #Labels (First run further calculations to generate the variables)
-# sirs_ids
 # proven_sepsis_ids
 # sus_ids
+#desc %>% filter (!(pmid %in% c(sirs_ids, sus_ids, proven_sepsis_ids)))
+
+#Variables
+summary(dat$hr)
+summary(dat$sao2)
+summary(dat$rr)
+summary(dat$map)
+summary(dat$temperature)
 
 # Variables used for composite scoring ------------------------------------
 
@@ -408,6 +412,9 @@ summary(dat$hr)
 
 analysis
 
+dat %>% filter(time == "1542120", id == "100750")
+(1542900-1542120)/60
+
 # The Patients with the highest severity value  ---------------------------
 
 analysis # To find out the patient with the highest severity
@@ -416,17 +423,43 @@ table(final$id) # check entries
 
 which_id <- "101137" #100803 and 101137
 which_time <- "498480" #10380 and 498480
+# Patient 2: 498180, 498480, 499620
 
 dat %>% filter(id == which_id, time == which_time)
 age_pre %>% filter(id == which_id, time == which_time)
-final  %>% filter(id == which_id, time == which_time) %>% select("sirs", "proven_sepsis", "sus_sepsis", "infection", "ventilation", "medication")
+final  %>% filter(id == which_id, time == which_time) #%>% select("sirs", "sus_sepsis")
+final  %>% filter(id == which_id, time >= 498180, time <= 499620)
 
 xx <- final %>% filter(id == which_id)
-arrange(xx, rms$rms)
+mean(xx$rms$rms)
+arrange(xx, time)
 
 # Create Plot with Use Case Creator at the bottom of this script
 # Figure 2 100803
 # Figure 3 101137
+
+# The Patient with the highest average disease severity  ------------------
+
+find_high <- final %>%
+  group_by(id, treatment) %>%
+  summarise(mean = mean(as.numeric(unlist(rms)), na.rm = TRUE))
+
+arrange(find_high, desc(mean))
+
+xx <- final %>% filter(id == "100846")
+arrange(xx, desc(rms$rms))
+
+table(final$id) # check entries
+
+which_id <- "100846"
+which_time <- "14100"
+
+dat %>% filter(id == which_id, time == which_time)
+age_pre %>% filter(id == which_id, time == which_time)
+final  %>% filter(id == which_id, time == which_time)
+
+# Create Plot with Use Case Creator at the bottom of this script
+# Figure 5 100846
 
 # The Patient with the lowest average disease severity  ------------------
 
@@ -438,25 +471,22 @@ arrange(find_low, mean)
 
 # 100419 (but too few entries), 101130
 
+xx <- final %>% filter(id == "101130")
+arrange(xx, desc(rms$rms))
+
+table(final$id) # check entries
+
+which_id <- "101130"
+which_time <- "90900"
+
+dat %>% filter(id == which_id, time == which_time)
+age_pre %>% filter(id == which_id, time == which_time)
+final  %>% filter(id == which_id, time == which_time)
+
 table(final$id) # check entries
 
 # Create Plot with Use Case Creator at the bottom of this script
 # Figure 4 101130
-
-# The Patient with the highest average disease severity  ------------------
-
-find_high <- final %>%
-  group_by(id, treatment) %>%
-  summarise(mean = mean(as.numeric(unlist(rms)), na.rm = TRUE))
-
-arrange(find_high, desc(mean))
-
-# 100846
-
-table(final$id) # check entries
-
-# Create Plot with Use Case Creator at the bottom of this script
-# Figure 5 100846
 
 # Does sex influence the disease severity?  -------------------------------
 
@@ -735,95 +765,6 @@ ggsave(
   compression = "lzw"
 )
 
-# hRELSA in comparison with the POPS --------
-
-# Calculate the POPS score with oxygen saturation, heart rate, resp. rate and temperature
-dat$pops <- 0
-for (s in 1:nrow(dat)) {
-  if (anyNA(dat[s, ])) {
-    pops <- NA
-  } else {
-    pops <- 0
-    if (dat$sao2[s] < 94 & dat$sao2[s] >= 90) {
-      pops <- pops + 1
-    } else if (dat$sao2[s] < 90) {
-      pops <- pops + 2
-    }
-    
-    if ((dat$hr[s] < 110 &
-         dat$hr[s] >= 90) | (dat$hr[s] > 160 & dat$hr[s] <= 180)) {
-      pops <- pops + 1
-    } else if (dat$hr[s] < 90 | dat$hr[s] > 180) {
-      pops <- pops + 2
-    }
-    
-    if ((dat$rr[s] < 30 &
-         dat$rr[s] >= 25) | (dat$rr[s] > 40 & dat$rr[s] <= 50)) {
-      pops <- pops + 1
-    } else if (dat$rr[s] < 25 | dat$rr[s] > 50) {
-      pops <- pops + 2
-    }
-    
-    if ((dat$temperature[s] < 36 &
-         dat$temperature[s] >= 35) |
-        (dat$temperature[s] > 37.5 & dat$temperature[s] <= 39)) {
-      pops <- pops + 1
-    } else if (dat$temperature[s] < 35 | dat$temperature[s] > 39) {
-      pops <- pops + 2
-    }
-  }
-  
-  dat$pops[s] <- pops
-}
-
-# Figure 9
-curve0 <- final %>%
-  mutate(
-    hours = round(time / (60 * 60), digits = 0),
-    minutes = round(time / 60, digits = 0),
-    days = round(time / ((60 * 60) * 24))
-  ) %>%
-  group_by(treatment, id) %>%
-  summarise(max = max(as.numeric(unlist(rms)), na.rm = TRUE))
-
-curve00 <- dat %>%
-  mutate(
-    hours = round(time / (60 * 60), digits = 0),
-    minutes = round(time / 60, digits = 0),
-    days = round(time / ((60 * 60) * 24))
-  ) %>%
-  group_by(treatment, id) %>%
-  summarise(max = max(as.numeric(pops), na.rm = TRUE))
-
-popstest <- lm(curve0$max ~ curve00$max)
-summary(popstest)
-
-p9 <-
-  ggplot(fortify(popstest), aes(x = curve00$max, y = curve0$max)) +
-  geom_point(size = 3, alpha = 0.75) +
-  geom_smooth(method = "lm", color = "#1F77B4") +
-  geom_hline(yintercept = 1, linetype = "dashed") +
-  ylim(0, 1) +
-  xlim(0, 8) +
-  labs (x = "highest POPS",
-        y = expression('PVS'[max]),
-        color = "") +
-  scale_color_manual(values = c("#1F77B4")) +
-  theme_classic() +
-  theme(
-    legend.position = "none",
-    axis.text = element_text(size = 13),
-    axis.title = element_text(size = 18)
-  )
-p9
-
-ggsave(
-  "figs/figure9.tiff",
-  plot = p8,
-  dpi = 300,
-  compression = "lzw"
-)
-
 # Mean increase before and after an event ---------------------------------
 
 ### Before and after Proven Sepsis (max out of next 4)
@@ -884,6 +825,10 @@ for (i in 1:nrow(sirs_final)) {
 sirs_befaf$diff <- sirs_befaf$after - sirs_befaf$before
 mean(sirs_befaf$diff)
 
+fc_sirs_befaf <- sirs_befaf %>% mutate(id = as.character(id))
+id_counts <- table(fc_sirs_befaf$id)
+mean(id_counts)
+
 ### Before and after Suspected Sepsis (max out of next 4)
 sus_sepsis_final <- final[final$id %in% sus_ids, ]
 sus_sepsis_befaf <- tibble(col1 = factor(), col2 = double(), col3 = double())
@@ -912,6 +857,10 @@ for (i in 1:nrow(sus_sepsis_final)) {
 
 sus_sepsis_befaf$diff <- sus_sepsis_befaf$after - sus_sepsis_befaf$before
 mean(sus_sepsis_befaf$diff, na.rm = TRUE)
+
+fc_sus_befaf <- sus_sepsis_befaf %>% mutate(id = as.character(id))
+id_counts <- table(fc_sus_befaf$id)
+mean(id_counts)
 
 # Comparison between max and before discharge -----------------------------
 
@@ -951,13 +900,13 @@ pm1 <- curve00 %>%
              size = 3,
              alpha = 0.75) +
   geom_hline(yintercept = 1, linetype = "dashed") +
-  # geom_signif(
-  #   comparisons = list(c("max", "last")),
-  #   map_signif_level = TRUE,
-  #   color = c("#000000"),
-  #   textsize = 5,
-  #   annotation = "****"
-  # ) +
+  geom_signif(
+    comparisons = list(c("max", "last")),
+    map_signif_level = TRUE,
+    color = c("#000000"),
+    textsize = 5,
+    annotation = "****"
+  ) +
   labs (x = "", y = "PVS", color = "PVS type") +
   theme_classic() +
   theme(
@@ -1167,7 +1116,7 @@ maxlast <- maxlast + plot_layout(ncol = 3)
 maxlast
 
 ggsave(
-  "figs/figure10.tiff",
+  "figs/figure9.tiff",
   plot = maxlast,
   dpi = 300,
   width = 14,
@@ -1178,6 +1127,95 @@ ggsave(
 
 
 
+
+# PVS in comparison with the POPS --------
+
+# Calculate the POPS score with oxygen saturation, heart rate, resp. rate and temperature
+dat$pops <- 0
+for (s in 1:nrow(dat)) {
+  if (anyNA(dat[s, ])) {
+    pops <- NA
+  } else {
+    pops <- 0
+    if (dat$sao2[s] < 94 & dat$sao2[s] >= 90) {
+      pops <- pops + 1
+    } else if (dat$sao2[s] < 90) {
+      pops <- pops + 2
+    }
+    
+    if ((dat$hr[s] < 110 &
+         dat$hr[s] >= 90) | (dat$hr[s] > 160 & dat$hr[s] <= 180)) {
+      pops <- pops + 1
+    } else if (dat$hr[s] < 90 | dat$hr[s] > 180) {
+      pops <- pops + 2
+    }
+    
+    if ((dat$rr[s] < 30 &
+         dat$rr[s] >= 25) | (dat$rr[s] > 40 & dat$rr[s] <= 50)) {
+      pops <- pops + 1
+    } else if (dat$rr[s] < 25 | dat$rr[s] > 50) {
+      pops <- pops + 2
+    }
+    
+    if ((dat$temperature[s] < 36 &
+         dat$temperature[s] >= 35) |
+        (dat$temperature[s] > 37.5 & dat$temperature[s] <= 39)) {
+      pops <- pops + 1
+    } else if (dat$temperature[s] < 35 | dat$temperature[s] > 39) {
+      pops <- pops + 2
+    }
+  }
+  
+  dat$pops[s] <- pops
+}
+
+# Figure 10
+curve0 <- final %>%
+  mutate(
+    hours = round(time / (60 * 60), digits = 0),
+    minutes = round(time / 60, digits = 0),
+    days = round(time / ((60 * 60) * 24))
+  ) %>%
+  group_by(treatment, id) %>%
+  summarise(max = max(as.numeric(unlist(rms)), na.rm = TRUE))
+
+curve00 <- dat %>%
+  mutate(
+    hours = round(time / (60 * 60), digits = 0),
+    minutes = round(time / 60, digits = 0),
+    days = round(time / ((60 * 60) * 24))
+  ) %>%
+  group_by(treatment, id) %>%
+  summarise(max = max(as.numeric(pops), na.rm = TRUE))
+
+popstest <- lm(curve0$max ~ curve00$max)
+summary(popstest)
+
+p9 <-
+  ggplot(fortify(popstest), aes(x = curve00$max, y = curve0$max)) +
+  geom_point(size = 3, alpha = 0.75) +
+  geom_smooth(method = "lm", color = "#1F77B4") +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  ylim(0, 1) +
+  xlim(0, 8) +
+  labs (x = "highest POPS",
+        y = expression('PVS'[max]),
+        color = "") +
+  scale_color_manual(values = c("#1F77B4")) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    axis.text = element_text(size = 13),
+    axis.title = element_text(size = 18)
+  )
+p9
+
+ggsave(
+  "figs/figure10.tiff",
+  plot = p8,
+  dpi = 300,
+  compression = "lzw"
+)
 
 # Use Case Generator ------------------------------------------------------
 
@@ -1312,6 +1350,134 @@ usecase
 
 ggsave(
   "figs/figure3new3.tiff",
+  plot = usecase,
+  dpi = 300,
+  width = 14,
+  height = 7,
+  units = "in",
+  compression = "lzw"
+)
+# Use Case Generator (real time) ------------------------------------------------------
+
+#Settings
+which_id <- "101130"
+plot_names <- c("A", "B", "C", "D", "E", "F")
+
+line_size = 1.5
+
+# Plot
+curve0 <- final %>%
+  filter(id == which_id) %>%
+  mutate(days = time/60/60/24)
+
+curve00 <- dat %>%
+  filter(id == which_id) %>%
+  mutate(days = time/60/60/24)
+
+line_size = 1.5
+
+p01 <- ggplot() +
+  ggtitle(plot_names[1]) +
+  geom_line(
+    data = curve0,
+    aes(x = days, y = rms$rms, color = "PVS"),
+    size = line_size
+  ) +
+  labs (x = "days", y = "PVS", colour = "") +
+  ylim(0, 1) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  scale_color_manual(values = c("#FF5251")) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+p02 <- ggplot() +
+  ggtitle(plot_names[2]) +
+  geom_line(
+    data = curve00,
+    aes(x = days, y = hr),
+    size = line_size
+  ) +
+  labs (x = "days", y = "heart rate") +
+  ylim(min(dat$hr, na.rm = TRUE), max(dat$hr, na.rm = TRUE)) +
+  geom_hline(yintercept = ifelse(mean(age_pre$age[age_pre$id == which_id]) > 0.547, 135, 145), linetype = 2) +
+  scale_color_manual(values = c("black")) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+p03 <- ggplot() +
+  ggtitle(plot_names[3]) +
+  geom_line(
+    data = curve00,
+    aes(x = days, y = sao2),
+    size = line_size
+  ) +
+  labs (x = "days", y = "oxygen saturation") +
+  ylim(min(dat$sao2, na.rm = TRUE), max(dat$sao2, na.rm = TRUE)) +
+  geom_hline(yintercept = 100, linetype = 2) +
+  scale_color_manual(values = c("black")) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+p04 <- ggplot() +
+  ggtitle(plot_names[4]) +
+  geom_line(
+    data = curve00,
+    aes(x = days, y = rr),
+    size = line_size
+  ) +
+  labs (x = "days", y = "respiratory rate") +
+  ylim(min(dat$rr, na.rm = TRUE), max(dat$rr, na.rm = TRUE)) +
+  geom_hline(yintercept = ifelse(mean(age_pre$age[age_pre$id == which_id]) > 0.547, 35, 42.5), linetype = 2) +
+  scale_color_manual(values = c("black")) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+p05 <- ggplot() +
+  ggtitle(plot_names[5]) +
+  geom_line(
+    data = curve00,
+    aes(x = days, y = map),
+    size = line_size
+  ) +
+  labs (x = "days", y = "mean arterial pressure") +
+  ylim(min(dat$map, na.rm = TRUE), max(dat$map, na.rm = TRUE)) +
+  geom_hline(yintercept = ifelse(mean(age_pre$age[age_pre$id == which_id]) > 0.547, 70, 55), linetype = 2) +
+  scale_color_manual(values = c("black")) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+p06 <- ggplot() +
+  ggtitle(plot_names[6]) +
+  geom_line(
+    data = curve00,
+    aes(x = days, y = temperature),
+    size = line_size
+  ) +
+  labs (x = "days", y = "temperature") +
+  ylim(min(dat$temperature, na.rm = TRUE), max(dat$temperature, na.rm = TRUE)) +
+  geom_hline(yintercept = 37.3, linetype = 2) +
+  scale_color_manual(values = c("black")) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+usecase <- p01 +  p02 + p03 + p04 + p05 + p06
+usecase <- usecase + plot_layout(ncol = 3)
+usecase
+
+ggsave(
+  "figs/suppmaterial5.tiff",
   plot = usecase,
   dpi = 300,
   width = 14,
