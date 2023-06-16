@@ -1356,9 +1356,9 @@ p01 <- ggplot() +
   scale_color_manual(values = c("#FF5251")) +
   theme_classic() +
   theme(
-    legend.position = "none",
-    axis.ticks.x = element_blank(),
-    axis.text.x = element_blank()
+    legend.position = "none"
+    #axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank()
         )
 
 p02 <- ggplot() +
@@ -1374,9 +1374,9 @@ p02 <- ggplot() +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
-    legend.position = "none",
-    axis.ticks.x = element_blank(),
-    axis.text.x = element_blank()
+    legend.position = "none"
+    #axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank()
   )
 
 p03 <- ggplot() +
@@ -1392,9 +1392,9 @@ p03 <- ggplot() +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
-    legend.position = "none",
-    axis.ticks.x = element_blank(),
-    axis.text.x = element_blank()
+    legend.position = "none"
+    #axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank()
   )
 
 p04 <- ggplot() +
@@ -1410,9 +1410,9 @@ p04 <- ggplot() +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
-    legend.position = "none",
-    axis.ticks.x = element_blank(),
-    axis.text.x = element_blank()
+    legend.position = "none"
+    #axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank()
   )
 
 p05 <- ggplot() +
@@ -1428,9 +1428,9 @@ p05 <- ggplot() +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
-    legend.position = "none",
-    axis.ticks.x = element_blank(),
-    axis.text.x = element_blank()
+    legend.position = "none"
+    #axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank()
   )
 
 p06 <- ggplot() +
@@ -1446,9 +1446,9 @@ p06 <- ggplot() +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
-    legend.position = "none",
-    axis.ticks.x = element_blank(),
-    axis.text.x = element_blank()
+    legend.position = "none"
+    #axis.ticks.x = element_blank(),
+    #axis.text.x = element_blank()
   )
 
 usecase <- p01 +  p02 + p03 + p04 + p05 + p06
