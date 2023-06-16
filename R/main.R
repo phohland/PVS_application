@@ -1118,95 +1118,6 @@ ggsave(
 
 
 
-# PVS in comparison with the POPS --------
-
-# Calculate the POPS score with oxygen saturation, heart rate, resp. rate and temperature
-dat$pops <- 0
-for (s in 1:nrow(dat)) {
-  if (anyNA(dat[s, ])) {
-    pops <- NA
-  } else {
-    pops <- 0
-    if (dat$sao2[s] < 94 & dat$sao2[s] >= 90) {
-      pops <- pops + 1
-    } else if (dat$sao2[s] < 90) {
-      pops <- pops + 2
-    }
-    
-    if ((dat$hr[s] < 110 &
-         dat$hr[s] >= 90) | (dat$hr[s] > 160 & dat$hr[s] <= 180)) {
-      pops <- pops + 1
-    } else if (dat$hr[s] < 90 | dat$hr[s] > 180) {
-      pops <- pops + 2
-    }
-    
-    if ((dat$rr[s] < 30 &
-         dat$rr[s] >= 25) | (dat$rr[s] > 40 & dat$rr[s] <= 50)) {
-      pops <- pops + 1
-    } else if (dat$rr[s] < 25 | dat$rr[s] > 50) {
-      pops <- pops + 2
-    }
-    
-    if ((dat$temperature[s] < 36 &
-         dat$temperature[s] >= 35) |
-        (dat$temperature[s] > 37.5 & dat$temperature[s] <= 39)) {
-      pops <- pops + 1
-    } else if (dat$temperature[s] < 35 | dat$temperature[s] > 39) {
-      pops <- pops + 2
-    }
-  }
-  
-  dat$pops[s] <- pops
-}
-
-# Figure 10
-curve0 <- final %>%
-  mutate(
-    hours = round(time / (60 * 60), digits = 0),
-    minutes = round(time / 60, digits = 0),
-    days = round(time / ((60 * 60) * 24))
-  ) %>%
-  group_by(treatment, id) %>%
-  summarise(max = max(as.numeric(unlist(rms)), na.rm = TRUE))
-
-curve00 <- dat %>%
-  mutate(
-    hours = round(time / (60 * 60), digits = 0),
-    minutes = round(time / 60, digits = 0),
-    days = round(time / ((60 * 60) * 24))
-  ) %>%
-  group_by(treatment, id) %>%
-  summarise(max = max(as.numeric(pops), na.rm = TRUE))
-
-popstest <- lm(curve0$max ~ curve00$max)
-summary(popstest)
-
-p9 <-
-  ggplot(fortify(popstest), aes(x = curve00$max, y = curve0$max)) +
-  geom_point(size = 3, alpha = 0.75) +
-  geom_smooth(method = "lm", color = "#1F77B4") +
-  geom_hline(yintercept = 1, linetype = "dashed") +
-  ylim(0, 1) +
-  xlim(0, 8) +
-  labs (x = "highest POPS",
-        y = expression('PVS'[max]),
-        color = "") +
-  scale_color_manual(values = c("#1F77B4")) +
-  theme_classic() +
-  theme(
-    legend.position = "none",
-    axis.text = element_text(size = 13),
-    axis.title = element_text(size = 18)
-  )
-p9
-
-ggsave(
-  "figs/figure10.tiff",
-  plot = p8,
-  dpi = 300,
-  compression = "lzw"
-)
-
 # Working with simulated data ---------------------------------------------
 
 #Simultate data of a 10 year old (Random-Walk-Model)
@@ -1323,6 +1234,95 @@ sim2 <- sim_final %>% filter(id == "Sim")
 mean(sim2$rms$rms)
 max(sim2$rms$rms)
 min(sim2$rms$rms)
+
+# PVS in comparison with the POPS --------
+
+# Calculate the POPS score with oxygen saturation, heart rate, resp. rate and temperature
+dat$pops <- 0
+for (s in 1:nrow(dat)) {
+  if (anyNA(dat[s, ])) {
+    pops <- NA
+  } else {
+    pops <- 0
+    if (dat$sao2[s] < 94 & dat$sao2[s] >= 90) {
+      pops <- pops + 1
+    } else if (dat$sao2[s] < 90) {
+      pops <- pops + 2
+    }
+    
+    if ((dat$hr[s] < 110 &
+         dat$hr[s] >= 90) | (dat$hr[s] > 160 & dat$hr[s] <= 180)) {
+      pops <- pops + 1
+    } else if (dat$hr[s] < 90 | dat$hr[s] > 180) {
+      pops <- pops + 2
+    }
+    
+    if ((dat$rr[s] < 30 &
+         dat$rr[s] >= 25) | (dat$rr[s] > 40 & dat$rr[s] <= 50)) {
+      pops <- pops + 1
+    } else if (dat$rr[s] < 25 | dat$rr[s] > 50) {
+      pops <- pops + 2
+    }
+    
+    if ((dat$temperature[s] < 36 &
+         dat$temperature[s] >= 35) |
+        (dat$temperature[s] > 37.5 & dat$temperature[s] <= 39)) {
+      pops <- pops + 1
+    } else if (dat$temperature[s] < 35 | dat$temperature[s] > 39) {
+      pops <- pops + 2
+    }
+  }
+  
+  dat$pops[s] <- pops
+}
+
+# Figure 10
+curve0 <- final %>%
+  mutate(
+    hours = round(time / (60 * 60), digits = 0),
+    minutes = round(time / 60, digits = 0),
+    days = round(time / ((60 * 60) * 24))
+  ) %>%
+  group_by(treatment, id) %>%
+  summarise(max = max(as.numeric(unlist(rms)), na.rm = TRUE))
+
+curve00 <- dat %>%
+  mutate(
+    hours = round(time / (60 * 60), digits = 0),
+    minutes = round(time / 60, digits = 0),
+    days = round(time / ((60 * 60) * 24))
+  ) %>%
+  group_by(treatment, id) %>%
+  summarise(max = max(as.numeric(pops), na.rm = TRUE))
+
+popstest <- lm(curve0$max ~ curve00$max)
+summary(popstest)
+
+p9 <-
+  ggplot(fortify(popstest), aes(x = curve00$max, y = curve0$max)) +
+  geom_point(size = 3, alpha = 0.75) +
+  geom_smooth(method = "lm", color = "#1F77B4") +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  ylim(0, 1) +
+  xlim(0, 8) +
+  labs (x = "highest POPS",
+        y = expression('PVS'[max]),
+        color = "") +
+  scale_color_manual(values = c("#1F77B4")) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    axis.text = element_text(size = 13),
+    axis.title = element_text(size = 18)
+  )
+p9
+
+ggsave(
+  "figs/figure10.tiff",
+  plot = p8,
+  dpi = 300,
+  compression = "lzw"
+)
 
 # Use Case Generator ------------------------------------------------------
 
