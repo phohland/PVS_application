@@ -583,7 +583,7 @@ px1 <- curve %>%
     axis.text = element_text(size = 13),
     axis.title = element_text(size = 18, face = "bold")
   ) +
-  scale_color_manual(values = c("#1F77B4", "#FF7F0E"))
+  scale_color_manual(values = c("#001F5C", "#B30000"))
 px1
 
 
@@ -638,7 +638,7 @@ px2 <- curve %>%
     axis.text = element_text(size = 13),
     axis.title = element_text(size = 18, face = "bold")
   ) +
-  scale_color_manual(values = c("#1F77B4", "#FF7F0E"))
+  scale_color_manual(values = c("#001F5C", "#B30000"))
 px2
 
 
@@ -693,7 +693,7 @@ px3 <- curve %>%
     axis.text = element_text(size = 13),
     axis.title = element_text(size = 18, face = "bold")
   ) +
-  scale_color_manual(values = c("#1F77B4", "#FF7F0E"))
+  scale_color_manual(values = c("#001F5C", "#B30000"))
 px3
 
 
@@ -908,9 +908,10 @@ pm1 <- curve00 %>%
   theme(
     legend.position = "top",
     axis.text = element_text(size = 13),
-    axis.title = element_text(size = 18, face = "bold")
+    axis.title = element_text(size = 18)
   ) +
-  scale_color_manual(values = c("max" = "#FF7F0E", "last" = "#1F77B4"))
+  scale_color_manual(values = c("max" = "#B30000", "last" = "#001F5C"))
+
 pm1
 
 ### Statistics
@@ -987,9 +988,9 @@ pm2 <- curve00 %>%
   theme(
     legend.position = "top",
     axis.text = element_text(size = 13),
-    axis.title = element_text(size = 18, face = "bold")
+    axis.title = element_text(size = 18)
   ) +
-  scale_color_manual(values = c("max" = "#FF7F0E", "last" = "#1F77B4"))
+  scale_color_manual(values = c("max" = "#B30000", "last" = "#001F5C"))
 pm2
 
 ### Statistics
@@ -1066,9 +1067,9 @@ pm3 <- curve00 %>%
   theme(
     legend.position = "top",
     axis.text = element_text(size = 13),
-    axis.title = element_text(size = 18, face = "bold")
+    axis.title = element_text(size = 18)
   ) +
-  scale_color_manual(values = c("max" = "#FF7F0E", "last" = "#1F77B4"))
+  scale_color_manual(values = c("max" = "#B30000", "last" = "#001F5C"))
 pm3
 
 ### Statistics
@@ -1102,7 +1103,7 @@ cohensD(pvs ~ type, data = curve00_nosus)
 
 # Panel Plot ###
 maxlast <- pm1 +  pm2 + pm3
-maxlast <- maxlast + plot_layout(ncol = 3)
+maxlast <- maxlast + plot_layout(ncol = 3, guides = "collect") & theme(legend.position = "top")
 maxlast
 
 ggsave(
@@ -1327,10 +1328,12 @@ ggsave(
 # Use Case Generator ------------------------------------------------------
 
 #Settings
-which_id <- "100846"
+which_id <- "101130"
+#plot_names <- c("G", "H", "I", "J", "K", "L")
 plot_names <- c("A", "B", "C", "D", "E", "F")
 
-line_size = 1.5
+
+line_size = 1
 
 # Plot
 curve0 <- final %>%
@@ -1340,8 +1343,6 @@ curve0 <- final %>%
 curve00 <- dat %>%
   filter(id == which_id) %>%
   mutate(count = row_number())
-
-line_size = 1.5
 
 p01 <- ggplot() +
   ggtitle(plot_names[1]) +
@@ -1353,7 +1354,7 @@ p01 <- ggplot() +
   labs (x = "time", y = "PVS", colour = "") +
   ylim(0, 1) +
   geom_hline(yintercept = 1, linetype = 2) +
-  scale_color_manual(values = c("#FF5251")) +
+  scale_color_manual(values = c("#B30000")) +
   theme_classic() +
   theme(
     legend.position = "none"
@@ -1456,7 +1457,7 @@ usecase <- usecase + plot_layout(ncol = 3)
 usecase
 
 ggsave(
-  "figs/figure3new3.tiff",
+  "figs/XX.tiff",
   plot = usecase,
   dpi = 300,
   width = 14,
@@ -1596,9 +1597,9 @@ ggsave(
 
 #Settings
 which_id <- "Sim"
-plot_names <- c("A", "B", "C", "D", "E", "F")
+plot_names <- c("E", "F", "C", "D", "E", "F")
 
-line_size = 1.5
+line_size = 1
 
 # Plot
 curve0 <- sim_final %>%
@@ -1608,8 +1609,6 @@ curve0 <- sim_final %>%
 curve00 <- sim_dat %>%
   filter(id == which_id) %>%
   mutate(count = row_number())
-
-line_size = 1.5
 
 p01 <- ggplot() +
   ggtitle(plot_names[1]) +
@@ -1621,12 +1620,12 @@ p01 <- ggplot() +
   labs (x = "time", y = "PVS", colour = "") +
   ylim(0, 1) +
   geom_hline(yintercept = 1, linetype = 2) +
-  scale_color_manual(values = c("#FF5251")) +
+  scale_color_manual(values = c("#B30000")) +
   theme_classic() +
   theme(
-    legend.position = "none",
-    axis.ticks.x = element_blank(),
-    axis.text.x = element_blank()
+    legend.position = "none"
+    # axis.ticks.x = element_blank(),
+    # axis.text.x = element_blank()
   )
 
 p02 <- ggplot() +
@@ -1642,9 +1641,9 @@ p02 <- ggplot() +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
-    legend.position = "none",
-    axis.ticks.x = element_blank(),
-    axis.text.x = element_blank()
+    legend.position = "none"
+    # axis.ticks.x = element_blank(),
+    # axis.text.x = element_blank()
   )
 
 p03 <- ggplot() +
@@ -1660,9 +1659,9 @@ p03 <- ggplot() +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
-    legend.position = "none",
-    axis.ticks.x = element_blank(),
-    axis.text.x = element_blank()
+    legend.position = "none"
+    # axis.ticks.x = element_blank(),
+    # axis.text.x = element_blank()
   )
 
 p04 <- ggplot() +
@@ -1678,9 +1677,9 @@ p04 <- ggplot() +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
-    legend.position = "none",
-    axis.ticks.x = element_blank(),
-    axis.text.x = element_blank()
+    legend.position = "none"
+    # axis.ticks.x = element_blank(),
+    # axis.text.x = element_blank()
   )
 
 p05 <- ggplot() +
@@ -1696,9 +1695,9 @@ p05 <- ggplot() +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
-    legend.position = "none",
-    axis.ticks.x = element_blank(),
-    axis.text.x = element_blank()
+    legend.position = "none"
+    # axis.ticks.x = element_blank(),
+    # axis.text.x = element_blank()
   )
 
 p06 <- ggplot() +
@@ -1714,9 +1713,9 @@ p06 <- ggplot() +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
-    legend.position = "none",
-    axis.ticks.x = element_blank(),
-    axis.text.x = element_blank()
+    legend.position = "none"
+    # axis.ticks.x = element_blank(),
+    # axis.text.x = element_blank()
   )
 
 usecase <- p01 +  p02 + p03 + p04 + p05 + p06
@@ -1729,6 +1728,19 @@ ggsave(
   dpi = 300,
   width = 14,
   height = 7,
+  units = "in",
+  compression = "lzw"
+)
+
+uc_plot <- x1 + x2 + x3 + x4 + x5 + x6
+uc_plot <- uc_plot + plot_layout(ncol = 2)
+
+ggsave(
+  "figs/figureUC.tiff",
+  plot = uc_plot,
+  dpi = 300,
+  width = 9.333333,
+  height = 10.5,
   units = "in",
   compression = "lzw"
 )
