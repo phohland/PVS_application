@@ -1,25 +1,26 @@
 #'
-#' hRELSA:
-#' A translational approach to quantify a patient’s disease severity in real-time
+#' Quantifying patient vital status: a translational composite score
 #'
 #' R file to setup raw data
 #'
 
+
 # Libraries ---------------------------------------------------------------
 
-# Prior a installation of each package is needed
-install.packages(c("hRELSA",
-                   "tidyverse",
-                   "janitor",
-                   "readxl"))
+required_packages <- c("hRELSA", "tidyverse", "janitor", "readxl", "writexl")
 
-library(hRELSA)
+for (package_name in required_packages) {
+  if (!require(package_name,
+               character.only = TRUE,
+               quietly = TRUE)) {
+    install.packages(package_name)
+    library(package_name, character.only = TRUE)
+  } else {
+    library(package_name, character.only = TRUE)
+  }
+}
 
-library(tidyverse)
-library(janitor)
-library(readxl)
-
-# Data setup -------------------------------------------------------------
+# Data setup --------------------------------------------------------------
 
 # Blood pressure
 raw_bp <-
@@ -176,51 +177,18 @@ raw_tom <- raw_tom %>%
          sao2 = as.double(sao2))
 
 # Merge all data sets into one final data set
-raw <- NULL
-raw <-
-  merge(
-    raw_hr,
-    raw_pulse,
-    by = c("pmid", "time"),
-    all.x = TRUE,
-    all.y = TRUE
-  )
-raw <-
-  merge(
-    raw,
-    raw_tom,
-    by = c("pmid", "time"),
-    all.x = TRUE,
-    all.y = TRUE
-  )
-raw <-
-  merge(
-    raw,
-    raw_resp,
-    by = c("pmid", "time"),
-    all.x = TRUE,
-    all.y = TRUE
-  )
-raw <-
-  merge(
-    raw,
-    raw_bp,
-    by = c("pmid", "time"),
-    all.x = TRUE,
-    all.y = TRUE
-  )
-raw <-
-  merge(
-    raw,
-    raw_temp,
-    by = c("pmid", "time"),
-    all.x = TRUE,
-    all.y = TRUE
-  )
-raw <- as_tibble(raw)
+raw_list <-
+  list(raw_hr, raw_pulse, raw_tom, raw_resp, raw_bp, raw_temp)
+raw <- reduce(raw_list, left_join, by = c("pmid", "time"))
 
-# Delete duplicates
+# Delete time duplicates
 raw <- raw %>% distinct(time, .keep_all = TRUE)
+
+# Deletion of unrealistic entries
+raw <- raw %>%
+  mutate(
+    temperature = ifelse(temperature > 34, temperature, NA)
+  )
 
 # Drop NAs
 raw <- na.omit(raw)
@@ -229,56 +197,19 @@ raw <- na.omit(raw)
 names(raw)[1] <- "id"
 names(raw)[2] <- "timepoint"
 
-# Merge patient information and sepsis labels
-raw_master_full <-
-  merge(
-    raw_master,
-    raw_master_label,
-    by = c("pmid"),
-    all.x = TRUE,
-    all.y = TRUE
-  )
-raw_master_full <-
-  raw_master_full[raw_master_full$pmid %in% raw$id, ]
-levels(raw_master_full$label) <-
-  c(levels(raw_master_full$label), "NoLabel")
-raw_master_full[is.na(raw_master_full)] <- "NoLabel"
-raw_master_full <- as_tibble(raw_master_full)
-
-# Add the sepsis label as "treatment"
-raw$treatment <- NA
-raw$treatment <- as.factor(raw$treatment)
-levels(raw$treatment) <- levels(raw_master_full$label)
-for (l in 1:nrow(raw)) {
-  label <-
-    raw_master_full$label[raw_master_full$pmid == as.character(raw$id[l])]
-  raw$treatment[l] <- as.factor(label)
-}
+# Merge patient information
+master_list <- list(raw_master, raw_master_label)
+master <- reduce(master_list, left_join, by = "pmid")
+master <- master[master$pmid %in% raw$id, ]
 
 # Add the sex as "condition"
-raw$condition <- NA
-raw$condition <- as.factor(raw$condition)
-levels(raw$condition) <- levels(raw_master_full$sex)
-for (l in 1:nrow(raw)) {
-  sex <-
-    raw_master_full$sex[raw_master_full$pmid == as.character(raw$id[l])]
-  raw$condition[l] <- as.factor(sex)
-}
-
-# Deletion of unrealistic entries
-raw <- raw %>%
-  mutate(
-    systolicbp = ifelse(systolicbp > 0, systolicbp, NA),
-    map = ifelse(map > 0, map, NA),
-    rr = ifelse(rr > 0, rr, NA),
-    temperature = ifelse(temperature > 34, temperature, NA),
-    map = ifelse(map < systolicbp, map, NA)
-  )
+raw$condition <-
+  as.factor(master$sex[match(as.character(raw$id), master$pmid)])
 
 # File creation -----------------------------------------------------------
 
 # raw
-write.csv(raw, file = "output/raw.csv")
+write_xlsx(raw, "output/raw.xlsx")
 
-#raw_master_full
-write.csv(raw_master_full, file = "output/raw_master_full.csv")
+# master
+write_xlsx(master, "output/master.xlsx")
