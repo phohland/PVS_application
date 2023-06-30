@@ -390,7 +390,7 @@ ps3 <- curve %>%
 ps3
 
 ggsave(
-  "figs/supp3.tiff",
+  "figs/supp_3.tiff",
   plot = ps3,
   dpi = 300,
   compression = "lzw"
@@ -641,6 +641,7 @@ curve00$type <- factor(curve00$type, levels = c("max", "last"))
 # Figure
 pm1 <- curve00 %>%
   ggplot(aes(x = treatment, y = pvs, color = type)) +
+  ggtitle("A") +
   geom_boxplot(outlier.shape = NA) +
   geom_point(position = position_jitterdodge(),
              size = 3,
@@ -734,6 +735,7 @@ curve00$type <- factor(curve00$type, levels = c("max", "last"))
 # Figure
 pm2 <- curve00 %>%
   ggplot(aes(x = treatment, y = pvs, color = type)) +
+  ggtitle("B") +
   geom_boxplot(outlier.shape = NA) +
   geom_point(position = position_jitterdodge(),
              size = 3,
@@ -742,7 +744,6 @@ pm2 <- curve00 %>%
   geom_signif(
     y_position = c(1.05, 1.05, 1.15), xmin = c(0.8, 1.8, 0.8), xmax = c(1.2, 2.2, 1.8),
     annotation = c("****", "****", "***"), tip_length = 0.03, color = "black") +
-  labs (x = "", y = "PVS", color = "PVS type") +
   labs (x = "", y = "PVS", color = "PVS type") +
   theme_classic() +
   theme(
@@ -782,6 +783,20 @@ z.test(
 
 cohensD(pvs ~ type, data = curve00_noprov)
 
+# Last comparison 
+curve00_last <- curve00[curve00$type == "last", ]
+describeBy(curve00_last$pvs, curve00_last$treatment)
+leveneTest(curve00_last$pvs, curve00_last$treatment)  # Same VAR
+z.test(
+  x = curve00_last$pvs[curve00_last$treatment == "Proven Sepsis"],
+  y = curve00_last$pvs[curve00_last$treatment == "No Proven Sepsis"],
+  sigma.x = sd(curve00_last$pvs[curve00_last$treatment == "Proven Sepsis"], na.rm = TRUE),
+  sigma.y = sd(curve00_last$pvs[curve00_last$treatment == "No Proven Sepsis"], na.rm = TRUE),
+  alternative = "two.sided"
+)
+
+cohensD(pvs ~ treatment, data = curve00_last)
+
 ## Suspected Sepsis
 sus_ids <- unique(final$id[final$sus_sepsis == TRUE])
 curve <- final
@@ -813,6 +828,7 @@ curve00$type <- factor(curve00$type, levels = c("max", "last"))
 # Figure
 pm3 <- curve00 %>%
   ggplot(aes(x = treatment, y = pvs, color = type)) +
+  ggtitle("C") +
   geom_boxplot(outlier.shape = NA) +
   geom_point(position = position_jitterdodge(),
              size = 3,
@@ -820,7 +836,7 @@ pm3 <- curve00 %>%
   geom_hline(yintercept = 1, linetype = "dashed") +
   geom_signif(
     y_position = c(1.05, 1.05, 1.15), xmin = c(0.8, 1.8, 0.8), xmax = c(1.2, 2.2, 1.8),
-    annotation = c("****", "****", "****"), tip_length = 0.03, color = "black") +
+    annotation = c("****", "****", "***"), tip_length = 0.03, color = "black") +
   labs (x = "", y = "PVS", color = "PVS type") +
   labs (x = "", y = "PVS", color = "PVS type") +
   theme_classic() +
@@ -861,13 +877,27 @@ z.test(
 
 cohensD(pvs ~ type, data = curve00_nosus)
 
+# Last comparison 
+curve00_last <- curve00[curve00$type == "last", ]
+describeBy(curve00_last$pvs, curve00_last$treatment)
+leveneTest(curve00_last$pvs, curve00_last$treatment)  # Same VAR
+z.test(
+  x = curve00_last$pvs[curve00_last$treatment == "Suspected Sepsis"],
+  y = curve00_last$pvs[curve00_last$treatment == "No Suspected Sepsis"],
+  sigma.x = sd(curve00_last$pvs[curve00_last$treatment == "Suspected Sepsis"], na.rm = TRUE),
+  sigma.y = sd(curve00_last$pvs[curve00_last$treatment == "No Suspected Sepsis"], na.rm = TRUE),
+  alternative = "two.sided"
+)
+
+cohensD(pvs ~ treatment, data = curve00_last)
+
 # Panel Plot ###
 maxlast <- pm1 +  pm2 + pm3
-maxlast <- maxlast + plot_layout(ncol = 3, guides = "collect") & theme(legend.position = "top")
+maxlast <- maxlast + plot_layout(ncol = 3, guides = "collect") & theme(legend.position = "top", plot.title = element_text(face = "bold"))
 maxlast
 
 ggsave(
-  "figs/figure9.tiff",
+  "figs/figure_3.tiff",
   plot = maxlast,
   dpi = 300,
   width = 14,
@@ -1102,7 +1132,9 @@ in_sirs <- which_id %in% sirs_ids
 variable_name <- ifelse(in_sus, "sus_sepsis", ifelse(in_proven_sepsis, "proven_sepsis", ifelse(in_sirs, "sirs", NA)))
 #variable_name <- "proven_sepsis"
 
-line_size = 1
+line_size = 2
+vline_size = 0.75
+hline_size = 0.75
 
 # Plot
 curve0 <- final %>%
@@ -1125,11 +1157,12 @@ p01 <- ggplot() +
       eval(parse(text = variable_name)) != lag(eval(parse(text = variable_name)))
     ),
     aes(xintercept = count),
-    linetype = "dashed"
+    linetype = "dashed",
+    size = vline_size
   ) +
-  labs (x = "time", y = "PVS", colour = "") +
+  labs (x = "consecutive entries", y = "PVS", colour = "") +
   ylim(0, max(final$rms$rms, na.rm = TRUE)) +
-  geom_hline(yintercept = 1, linetype = 2) +
+  geom_hline(yintercept = 1, linetype = 2, size = hline_size) +
   scale_color_manual(values = c("#B30000")) +
   theme_classic() +
   theme(
@@ -1150,11 +1183,12 @@ p02 <- ggplot() +
       eval(parse(text = variable_name)) != lag(eval(parse(text = variable_name)))
     ),
     aes(xintercept = count),
-    linetype = "dashed"
+    linetype = "dashed",
+    size = vline_size
   ) +
-  labs (x = "time", y = "heart rate") +
+  labs (x = "consecutive entries", y = "heart rate (bpm)") +
   ylim(min(dat$hr, na.rm = TRUE), max(dat$hr, na.rm = TRUE)) +
-  geom_hline(yintercept = ifelse(mean(age_pre$age[age_pre$id == which_id]) > 0.547, 135, 145), linetype = 2) +
+  geom_hline(yintercept = ifelse(mean(age_pre$age[age_pre$id == which_id]) > 0.547, 135, 145), linetype = 2, size = hline_size) +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
@@ -1175,11 +1209,12 @@ p03 <- ggplot() +
       eval(parse(text = variable_name)) != lag(eval(parse(text = variable_name)))
     ),
     aes(xintercept = count),
-    linetype = "dashed"
+    linetype = "dashed",
+    size = vline_size
   ) +
-  labs (x = "time", y = "oxygen saturation") +
+  labs (x = "consecutive entries", y = "oxygen saturation (%)") +
   ylim(min(dat$sao2, na.rm = TRUE), max(dat$sao2, na.rm = TRUE)) +
-  geom_hline(yintercept = 100, linetype = 2) +
+  geom_hline(yintercept = 100, linetype = 2, size = hline_size) +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
@@ -1200,11 +1235,12 @@ p04 <- ggplot() +
       eval(parse(text = variable_name)) != lag(eval(parse(text = variable_name)))
     ),
     aes(xintercept = count),
-    linetype = "dashed"
+    linetype = "dashed",
+    size = vline_size
   ) +
-  labs (x = "time", y = "respiratory rate") +
+  labs (x = "consecutive entries", y = "respiratory rate (/min)") +
   ylim(min(dat$rr, na.rm = TRUE), max(dat$rr, na.rm = TRUE)) +
-  geom_hline(yintercept = ifelse(mean(age_pre$age[age_pre$id == which_id]) > 0.547, 35, 42.5), linetype = 2) +
+  geom_hline(yintercept = ifelse(mean(age_pre$age[age_pre$id == which_id]) > 0.547, 35, 42.5), linetype = 2, size = hline_size) +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
@@ -1225,11 +1261,12 @@ p05 <- ggplot() +
       eval(parse(text = variable_name)) != lag(eval(parse(text = variable_name)))
     ),
     aes(xintercept = count),
-    linetype = "dashed"
+    linetype = "dashed",
+    size = vline_size
   ) +
-  labs (x = "time", y = "mean arterial pressure") +
+  labs (x = "consecutive entries", y = "mean arterial pressure (mmHg)") +
   ylim(min(dat$map, na.rm = TRUE), max(dat$map, na.rm = TRUE)) +
-  geom_hline(yintercept = ifelse(mean(age_pre$age[age_pre$id == which_id]) > 0.547, 70, 55), linetype = 2) +
+  geom_hline(yintercept = ifelse(mean(age_pre$age[age_pre$id == which_id]) > 0.547, 70, 55), linetype = 2, size = hline_size) +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
@@ -1250,11 +1287,12 @@ p06 <- ggplot() +
       eval(parse(text = variable_name)) != lag(eval(parse(text = variable_name)))
     ),
     aes(xintercept = count),
-    linetype = "dashed"
+    linetype = "dashed",
+    size = vline_size
   ) +
-  labs (x = "time", y = "temperature") +
+  labs (x = "consecutive entries", y = "temperature (°C)") +
   ylim(min(dat$temperature, na.rm = TRUE), max(dat$temperature, na.rm = TRUE)) +
-  geom_hline(yintercept = 37.3, linetype = 2) +
+  geom_hline(yintercept = 37.3, linetype = 2, size = hline_size) +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
@@ -1264,7 +1302,9 @@ p06 <- ggplot() +
   )
 
 usecase <- p01 +  p02 + p03 + p04 + p05 + p06
-usecase <- usecase + plot_layout(ncol = 3)
+usecase <- usecase + plot_layout(ncol = 3) & theme(plot.title = element_text(face = "bold"),
+                                                   text = element_text(size = 12),
+                                                   plot.margin = margin(0.35, 0.35, 0.35, 0.35, "cm"))
 usecase
 
 ggsave(
@@ -1408,9 +1448,9 @@ ggsave(
 
 #Settings
 which_id <- "101137"
-plot_names <- c("A", "B", "C", "D", "E", "F")
+plot_names <- c("A", "B", "C", "D", "E")
 
-line_size = 0.5
+line_size = 2
 
 # Plot
 curve0 <- dat_before_rolling_means %>%
@@ -1421,8 +1461,8 @@ curve00 <- dat %>%
   filter(id == which_id) %>%
   mutate(count = curve0$count[match(paste(id, time), paste(curve0$id, curve0$time))])
 
-p02 <- ggplot() +
-  ggtitle(plot_names[2]) +
+p01 <- ggplot() +
+  ggtitle(plot_names[1]) +
   geom_line(
     data = curve0,
     aes(x = count, y = hr),
@@ -1435,17 +1475,16 @@ p02 <- ggplot() +
     size = line_size,
     color = "red"
   ) +
-  labs (x = "time", y = "heart rate") +
+  labs (x = "consecutive entries", y = "heart rate (bpm)") +
   ylim(min(dat_before_rolling_means$hr, na.rm = TRUE), max(dat_before_rolling_means$hr, na.rm = TRUE)) +
   geom_hline(yintercept = ifelse(mean(age_pre$age[age_pre$id == which_id]) > 0.547, 135, 145), linetype = 2) +
   theme_classic() +
   theme(
     legend.position = "none"
   )
-p02
 
-p03 <- ggplot() +
-  ggtitle(plot_names[3]) +
+p02 <- ggplot() +
+  ggtitle(plot_names[2]) +
   geom_line(
     data = curve0,
     aes(x = count, y = sao2),
@@ -1458,9 +1497,32 @@ p03 <- ggplot() +
     size = line_size,
     color = "red"
   ) +
-  labs (x = "time", y = "oxygen saturation") +
+  labs (x = "consecutive entries", y = "oxygen saturation (%)") +
   ylim(min(dat_before_rolling_means$sao2, na.rm = TRUE), max(dat_before_rolling_means$sao2, na.rm = TRUE)) +
   geom_hline(yintercept = 100, linetype = 2) +
+  scale_color_manual(values = c("black")) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+p03 <- ggplot() +
+  ggtitle(plot_names[3]) +
+  geom_line(
+    data = curve0,
+    aes(x = count, y = rr),
+    size = line_size,
+    color = "black"
+  ) +
+  geom_line(
+    data = curve00,
+    aes(x = count, y = rr),
+    size = line_size,
+    color = "red"
+  ) +
+  labs (x = "consecutive entries", y = "respiratory rate (/min)") +
+  ylim(min(dat_before_rolling_means$rr, na.rm = TRUE), max(dat_before_rolling_means$rr, na.rm = TRUE)) +
+  geom_hline(yintercept = ifelse(mean(age_pre$age[age_pre$id == which_id]) > 0.547, 35, 42.5), linetype = 2) +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
@@ -1471,19 +1533,19 @@ p04 <- ggplot() +
   ggtitle(plot_names[4]) +
   geom_line(
     data = curve0,
-    aes(x = count, y = rr),
+    aes(x = count, y = map),
     size = line_size,
     color = "black"
   ) +
   geom_line(
     data = curve00,
-    aes(x = count, y = rr),
+    aes(x = count, y = map),
     size = line_size,
     color = "red"
   ) +
-  labs (x = "time", y = "respiratory rate") +
-  ylim(min(dat_before_rolling_means$rr, na.rm = TRUE), max(dat_before_rolling_means$rr, na.rm = TRUE)) +
-  geom_hline(yintercept = ifelse(mean(age_pre$age[age_pre$id == which_id]) > 0.547, 35, 42.5), linetype = 2) +
+  labs (x = "consecutive entries", y = "mean arterial pressure (mmHg)") +
+  ylim(min(dat_before_rolling_means$map, na.rm = TRUE), max(dat_before_rolling_means$map, na.rm = TRUE)) +
+  geom_hline(yintercept = ifelse(mean(age_pre$age[age_pre$id == which_id]) > 0.547, 70, 55), linetype = 2) +
   scale_color_manual(values = c("black")) +
   theme_classic() +
   theme(
@@ -1494,29 +1556,6 @@ p05 <- ggplot() +
   ggtitle(plot_names[5]) +
   geom_line(
     data = curve0,
-    aes(x = count, y = map),
-    size = line_size,
-    color = "black"
-  ) +
-  geom_line(
-    data = curve00,
-    aes(x = count, y = map),
-    size = line_size,
-    color = "red"
-  ) +
-  labs (x = "time", y = "mean arterial pressure") +
-  ylim(min(dat_before_rolling_means$map, na.rm = TRUE), max(dat_before_rolling_means$map, na.rm = TRUE)) +
-  geom_hline(yintercept = ifelse(mean(age_pre$age[age_pre$id == which_id]) > 0.547, 70, 55), linetype = 2) +
-  scale_color_manual(values = c("black")) +
-  theme_classic() +
-  theme(
-    legend.position = "none"
-  )
-
-p06 <- ggplot() +
-  ggtitle(plot_names[6]) +
-  geom_line(
-    data = curve0,
     aes(x = count, y = temperature),
     size = line_size,
     color = "black"
@@ -1527,7 +1566,7 @@ p06 <- ggplot() +
     size = line_size,
     color = "red"
   ) +
-  labs (x = "time", y = "temperature") +
+  labs (x = "consecutive entries", y = "temperature (°C)") +
   ylim(min(dat_before_rolling_means$temperature, na.rm = TRUE), max(dat_before_rolling_means$temperature, na.rm = TRUE)) +
   geom_hline(yintercept = 37.3, linetype = 2) +
   scale_color_manual(values = c("black")) +
@@ -1536,12 +1575,13 @@ p06 <- ggplot() +
     legend.position = "none"
   )
 
-usecase <- p02 + p03 + p04 + p05 + p06
-usecase <- usecase + plot_layout(ncol = 3)
+usecase <- p01 + p02 + p03 + p04 + p05
+usecase <- usecase + plot_layout(ncol = 3) & theme(plot.title = element_text(face = "bold"),
+                                                   text = element_text(size = 12))
 usecase
 
 ggsave(
-  "figs/XXXX.tiff",
+  "figs/supp_1.tiff",
   plot = usecase,
   dpi = 300,
   width = 14,
