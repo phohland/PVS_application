@@ -93,6 +93,30 @@ sirs <- sirs %>%
     end = as.POSIXct(end, tz = ""),
   )
 
+# Sepsis labels (duration)
+sepsis <-
+  read.csv(
+    "data/Sepsis_label.csv",
+    sep = ";",
+    header = TRUE,
+    dec = ".",
+    row.names = NULL
+  )
+sepsis <- as_tibble(sepsis)
+names(sepsis)[1] <- "pmid"
+names(sepsis)[3] <- "start"
+names(sepsis)[4] <- "end"
+names(sepsis)[5] <- "sepsis"
+sepsis <- sepsis %>%
+  select("pmid", "start", "end", "sepsis") %>%
+  clean_names %>%
+  mutate(
+    pmid = as.factor(pmid),
+    start = as.POSIXct(start, tz = ""),
+    end = as.POSIXct(end, tz = ""),
+    sepsis = as.factor(sepsis)
+  )
+
 # Adds SIRS TRUE or FALSE to each entry in row
 raw$sirs <- FALSE
 
@@ -105,10 +129,36 @@ for (i in 1:nrow(raw)) {
   }
 }
 
-# SIRS label setup
+# SIRS label setup (for raw)
 sirs_ids <- unique(raw$id[raw$sirs == TRUE])
 raw$treatment <- factor("NoSIRS", levels = c("NoSIRS", "SIRS"))
 raw$treatment[raw$id %in% sirs_ids] <- factor("SIRS")
+
+# Sepsis label setup (for raw)
+raw$proven_sepsis <- FALSE
+raw$sus_sepsis <- FALSE
+raw$infection <- FALSE
+
+for (i in 1:nrow(raw)) {
+  if (raw$id[i] %in% sepsis$pmid) {
+    for (o in 1:nrow(sepsis)) {
+      if (sepsis$pmid[o] == raw$id[i]) {
+        if (raw$timepoint[i] >= sepsis$start[o] & raw$timepoint[i] <= sepsis$end[o]) {
+          if (sepsis$sepsis[o] == "Proven Sepsis") {
+            raw$proven_sepsis[i] <- TRUE
+          } else if (sepsis$sepsis[o] == "Suspected Sepsis") {
+            raw$sus_sepsis[i] <- TRUE
+          } else if (sepsis$sepsis[o] == "Infection") {
+            raw$infection[i] <- TRUE
+          }
+        }
+      }
+    }
+  }
+}
+
+proven_sepsis_ids <- unique(raw$id[raw$proven_sepsis == TRUE])
+sus_ids <- unique(raw$id[raw$sus_sepsis == TRUE])
 
 # Preparation: PVS Calculation  -----------------------------------------------------------------
 
@@ -144,9 +194,9 @@ dat <-
 
 # Rolling means
 dat_before_rolling_means <- dat
-dat <- dat %>% mutate(across(all_of(vars), ~rollapply(., width = 5, FUN = mean, align = "center", fill = NA)))
-dat <- dat %>% mutate(window_id = ceiling(row_number()/5))
-dat <- dat %>% group_by(window_id) %>%
+lol <- dat %>% mutate(across(all_of(vars), ~rollapply(., width = 5, FUN = mean, align = "center", fill = NA)))
+lol <- dat %>% mutate(window_id = ceiling(row_number()/5))
+lol <- dat %>% group_by(window_id) %>%
   filter(row_number() == 3) %>%
   ungroup()
 dat <- dat %>% select(-window_id)
@@ -210,30 +260,6 @@ temp_reg <-
   )
 regulated_ids <- unique(temp_reg$PMID)
 
-# Sepsis labels (duration)
-sepsis <-
-  read.csv(
-    "data/Sepsis_label.csv",
-    sep = ";",
-    header = TRUE,
-    dec = ".",
-    row.names = NULL
-  )
-sepsis <- as_tibble(sepsis)
-names(sepsis)[1] <- "pmid"
-names(sepsis)[3] <- "start"
-names(sepsis)[4] <- "end"
-names(sepsis)[5] <- "sepsis"
-sepsis <- sepsis %>%
-  select("pmid", "start", "end", "sepsis") %>%
-  clean_names %>%
-  mutate(
-    pmid = as.factor(pmid),
-    start = as.POSIXct(start, tz = ""),
-    end = as.POSIXct(end, tz = ""),
-    sepsis = as.factor(sepsis)
-  )
-
 # Adds SIRS TRUE or FALSE to each entry in final
 final$sirs <- FALSE
 
@@ -282,35 +308,54 @@ write_xlsx(output_final, "output/final.xlsx")
 
 desc <- master
 desc$stay <- desc$discharge - desc$admission
-desc$label <- "NoSIRS"
-desc$label[desc$pmid %in% sirs_ids] <- "SIRS"
+desc$age_at_admission <- desc$admission - desc$date_of_birth
+#desc$age_at_discharge <- desc$discharge - desc$date_of_birth
+desc$SIRS <- ifelse(desc$pmid %in% sirs_ids, TRUE, FALSE)
+desc$SuspectedSepsis <- ifelse(desc$pmid %in% sus_ids, TRUE, FALSE)
+desc$ProvenSepsis <- ifelse(desc$pmid %in% proven_sepsis_ids, TRUE, FALSE)
+desc <- desc %>% select(-date_of_die, - date_of_birth, -admission, -discharge)
 
 length(unique(desc$pmid))
-summary(desc$sex)
-summary(desc$date_of_birth)
 
 mean(desc$stay)
-median(desc$stay)
-min(desc$stay)
-max(desc$stay)
+mean(desc$age_at_admission)
 
-sirs_desc <- desc %>% filter(label == "SIRS")
-mean(sirs_desc$stay)
-median(sirs_desc$stay)
-min(sirs_desc$stay)
-max(sirs_desc$stay)
+female_desc <- desc %>% filter(sex == "f")
+length(female_desc$pmid)
+mean(female_desc$stay)
+mean(female_desc$age_at_admission)
 
-nosirs_desc <- desc %>% filter(label == "NoSIRS")
+male_desc <- desc %>% filter(sex == "m")
+length(male_desc$pmid)
+mean(male_desc$stay)
+mean(male_desc$age_at_admission)
+
+nosirs_desc <- desc %>% filter(SIRS == FALSE)
+length(nosirs_desc$pmid)
 mean(nosirs_desc$stay)
-median(nosirs_desc$stay)
-min(nosirs_desc$stay)
-max(nosirs_desc$stay)
+mean(nosirs_desc$age_at_admission)
 
+sirs_desc <- desc %>% filter(SIRS == TRUE)
+length(sirs_desc$pmid)
+mean(sirs_desc$stay)
+mean(sirs_desc$age_at_admission)
+
+sus_desc <- desc %>% filter(SuspectedSepsis == TRUE)
+length(sus_desc$pmid)
+mean(sus_desc$stay)
+mean(sus_desc$age_at_admission)
+
+prov_desc <- desc %>% filter(ProvenSepsis == TRUE)
+length(prov_desc$pmid)
+mean(prov_desc$stay)
+mean(prov_desc$age_at_admission)
+
+# p-values
 z.test(
   x = nosirs_desc$stay,
-  y = sirs_desc$stay,
+  y = sirs_desc$stay[desc$ProvenSepsis == FALSE],
   sigma.x = sd(nosirs_desc$stay, na.rm = TRUE),
-  sigma.y = sd(sirs_desc$stay, na.rm = TRUE),
+  sigma.y = sd(sirs_desc$stay[desc$ProvenSepsis == FALSE], na.rm = TRUE),
   alternative = "two.sided"
 )
 
@@ -368,7 +413,7 @@ curve <- final %>%
 ps3 <- curve %>%
   ggplot(aes(x = condition, y = max, color = condition)) +
   geom_boxplot(outlier.shape = NA) +
-  geom_point(position = position_jitterdodge(),
+  geom_point(position = position_jitterdodge(jitter.width = 1),
              size = 3,
              alpha = 0.75) +
   geom_hline(yintercept = 1, linetype = "dashed") +
@@ -376,7 +421,7 @@ ps3 <- curve %>%
     comparisons = list(c("female", "male")),
     map_signif_level = TRUE,
     color = c("#000000"),
-    textsize = 8,
+    textsize = 6,
     annotation = "ns."
   ) +
   labs (x = "", y = expression('PVS'[max])) +
@@ -398,7 +443,6 @@ ggsave(
 
 # Statistics
 describeBy(curve$max, curve$condition)
-leveneTest(curve$max, curve$condition)  # Same VAR
 z.test(
   x = curve$max[curve$condition == "female"],
   y = curve$max[curve$condition == "male"],
@@ -439,7 +483,6 @@ arrange(xx, time)
 
 # Comparison Suspected Sepsis PVS and no suspected Sepsis PVS
 describeBy(xx$rms$rms, xx$sus_sepsis)
-leveneTest(xx$rms$rms, as.factor(xx$sus_sepsis))  # Same VAR
 z.test(
   x = xx$rms$rms[xx$sus_sepsis == "TRUE"],
   y = xx$rms$rms[xx$sus_sepsis == "FALSE"],
@@ -469,7 +512,6 @@ arrange(xx, rms$rms)
 
 # Comparison Suspected Sepsis PVS and no suspected Sepsis PVS
 describeBy(xx$rms$rms, xx$proven_sepsis)
-leveneTest(xx$rms$rms, as.factor(xx$proven_sepsis))  # Same VAR
 z.test(
   x = xx$rms$rms[xx$proven_sepsis == "TRUE"],
   y = xx$rms$rms[xx$proven_sepsis == "FALSE"],
@@ -521,7 +563,6 @@ table(final$id) # check entries
 # Comparison of different Sepsis States in Terms of highest and last Patient Vital Status. --------
 
 # Proven Sepsis ###
-proven_sepsis_ids <- unique(final$id[final$proven_sepsis == TRUE])
 curve <- final
 curve$treatment <- NULL
 curve$treatment <- "NoProvenSepsis"
@@ -538,7 +579,6 @@ curve <- curve %>%
 
 # Statistics
 describeBy(curve$max, curve$treatment)
-leveneTest(curve$max, curve$treatment)  # Same VAR
 z.test(
   x = curve$max[curve$treatment == "No Proven Sepsis"],
   y = curve$max[curve$treatment == "Proven Sepsis"],
@@ -550,7 +590,6 @@ z.test(
 cohensD(max ~ treatment, data = curve)
 
 # SIRS ###
-sirs_ids <- unique(final$id[final$sirs == TRUE])
 curve <- final
 curve$treatment <- NULL
 curve$treatment <- "NoSIRS"
@@ -567,7 +606,6 @@ curve <- curve %>%
 
 # Statistics
 describeBy(curve$max, curve$treatment)
-leveneTest(curve$max, curve$treatment)  # Same VAR
 z.test(
   x = curve$max[curve$treatment == "No SIRS"],
   y = curve$max[curve$treatment == "SIRS"],
@@ -579,7 +617,6 @@ z.test(
 cohensD(max ~ treatment, data = curve)
 
 # Sus Sepsis ###
-sus_ids <- unique(final$id[final$sus_sepsis == TRUE])
 curve <- final
 curve$treatment <- NULL
 curve$treatment <- "NoSuspectedSepsis"
@@ -596,7 +633,6 @@ curve <- curve %>%
 
 # Statistics
 describeBy(curve$max, curve$treatment)
-leveneTest(curve$max, curve$treatment)  # Same VAR
 z.test(
   x = curve$max[curve$treatment == "No Suspected Sepsis"],
   y = curve$max[curve$treatment == "Suspected Sepsis"],
@@ -643,13 +679,13 @@ pm1 <- curve00 %>%
   ggplot(aes(x = treatment, y = pvs, color = type)) +
   ggtitle("A") +
   geom_boxplot(outlier.shape = NA) +
-  geom_point(position = position_jitterdodge(),
+  geom_point(position = position_jitterdodge(jitter.width = 0.35),
              size = 3,
              alpha = 0.75) +
   geom_hline(yintercept = 1, linetype = "dashed") +
   geom_signif(
     y_position = c(1.05, 1.05, 1.15), xmin = c(0.8, 1.8, 0.8), xmax = c(1.2, 2.2, 1.8),
-    annotation = c("****", "****", "****"), tip_length = 0.03, color = "black") +
+    annotation = c("****", "****", "****"), tip_length = 0.03, color = "black", textsize = 6) +
   labs (x = "", y = "PVS", color = "PVS type") +
   theme_classic() +
   theme(
@@ -665,7 +701,6 @@ pm1
 #SIRS
 curve00_sirs <- curve00[curve00$treatment == "SIRS", ]
 describeBy(curve00_sirs$pvs, curve00_sirs$type)
-leveneTest(curve00_sirs$pvs, curve00_sirs$type)  # Same VAR
 z.test(
   x = curve00_sirs$pvs[curve00_sirs$type == "max"],
   y = curve00_sirs$pvs[curve00_sirs$type == "last"],
@@ -679,7 +714,6 @@ cohensD(pvs ~ type, data = curve00_sirs)
 # No SIRS
 curve00_nosirs <- curve00[curve00$treatment == "No SIRS", ]
 describeBy(curve00_nosirs$pvs, curve00_nosirs$type)
-leveneTest(curve00_nosirs$pvs, curve00_nosirs$type)  # Same VAR
 z.test(
   x = curve00_nosirs$pvs[curve00_nosirs$type == "max"],
   y = curve00_nosirs$pvs[curve00_nosirs$type == "last"],
@@ -693,7 +727,6 @@ cohensD(pvs ~ type, data = curve00_nosirs)
 # Last comparison 
 curve00_last <- curve00[curve00$type == "last", ]
 describeBy(curve00_last$pvs, curve00_last$treatment)
-leveneTest(curve00_last$pvs, curve00_last$treatment)  # Same VAR
 z.test(
   x = curve00_last$pvs[curve00_last$treatment == "SIRS"],
   y = curve00_last$pvs[curve00_last$treatment == "No SIRS"],
@@ -735,15 +768,15 @@ curve00$type <- factor(curve00$type, levels = c("max", "last"))
 # Figure
 pm2 <- curve00 %>%
   ggplot(aes(x = treatment, y = pvs, color = type)) +
-  ggtitle("B") +
+  ggtitle("C") +
   geom_boxplot(outlier.shape = NA) +
-  geom_point(position = position_jitterdodge(),
+  geom_point(position = position_jitterdodge(jitter.width = 0.35),
              size = 3,
              alpha = 0.75) +
   geom_hline(yintercept = 1, linetype = "dashed") +
   geom_signif(
     y_position = c(1.05, 1.05, 1.15), xmin = c(0.8, 1.8, 0.8), xmax = c(1.2, 2.2, 1.8),
-    annotation = c("****", "****", "***"), tip_length = 0.03, color = "black") +
+    annotation = c("****", "****", "***"), tip_length = 0.03, color = "black", textsize = 6) +
   labs (x = "", y = "PVS", color = "PVS type") +
   theme_classic() +
   theme(
@@ -758,7 +791,6 @@ pm2
 #Proven Spesis
 curve00_prov <- curve00[curve00$treatment == "Proven Sepsis", ]
 describeBy(curve00_prov$pvs, curve00_prov$type)
-leveneTest(curve00_prov$pvs, curve00_prov$type)  # Same VAR
 z.test(
   x = curve00_prov$pvs[curve00_prov$type == "max"],
   y = curve00_prov$pvs[curve00_prov$type == "last"],
@@ -772,7 +804,6 @@ cohensD(pvs ~ type, data = curve00_prov)
 # No Proven Sepsis
 curve00_noprov <- curve00[curve00$treatment == "No Proven Sepsis", ]
 describeBy(curve00_noprov$pvs, curve00_noprov$type)
-leveneTest(curve00_noprov$pvs, curve00_noprov$type)  # No Same VAR
 z.test(
   x = curve00_noprov$pvs[curve00_noprov$type == "max"],
   y = curve00_noprov$pvs[curve00_noprov$type == "last"],
@@ -786,7 +817,6 @@ cohensD(pvs ~ type, data = curve00_noprov)
 # Last comparison 
 curve00_last <- curve00[curve00$type == "last", ]
 describeBy(curve00_last$pvs, curve00_last$treatment)
-leveneTest(curve00_last$pvs, curve00_last$treatment)  # Same VAR
 z.test(
   x = curve00_last$pvs[curve00_last$treatment == "Proven Sepsis"],
   y = curve00_last$pvs[curve00_last$treatment == "No Proven Sepsis"],
@@ -828,15 +858,15 @@ curve00$type <- factor(curve00$type, levels = c("max", "last"))
 # Figure
 pm3 <- curve00 %>%
   ggplot(aes(x = treatment, y = pvs, color = type)) +
-  ggtitle("C") +
+  ggtitle("B") +
   geom_boxplot(outlier.shape = NA) +
-  geom_point(position = position_jitterdodge(),
+  geom_point(position = position_jitterdodge(jitter.width = 0.35),
              size = 3,
              alpha = 0.75) +
   geom_hline(yintercept = 1, linetype = "dashed") +
   geom_signif(
     y_position = c(1.05, 1.05, 1.15), xmin = c(0.8, 1.8, 0.8), xmax = c(1.2, 2.2, 1.8),
-    annotation = c("****", "****", "***"), tip_length = 0.03, color = "black") +
+    annotation = c("****", "****", "***"), tip_length = 0.03, color = "black", textsize = 6) +
   labs (x = "", y = "PVS", color = "PVS type") +
   labs (x = "", y = "PVS", color = "PVS type") +
   theme_classic() +
@@ -852,7 +882,6 @@ pm3
 #Suspected Spesis
 curve00_sus <- curve00[curve00$treatment == "Suspected Sepsis", ]
 describeBy(curve00_sus$pvs, curve00_sus$type)
-leveneTest(curve00_sus$pvs, curve00_sus$type)  # Same VAR
 z.test(
   x = curve00_sus$pvs[curve00_sus$type == "max"],
   y = curve00_sus$pvs[curve00_sus$type == "last"],
@@ -866,7 +895,6 @@ cohensD(pvs ~ type, data = curve00_sus)
 # No Suspected Sepsis
 curve00_nosus <- curve00[curve00$treatment == "No Suspected Sepsis", ]
 describeBy(curve00_nosus$pvs, curve00_nosus$type)
-leveneTest(curve00_nosus$pvs, curve00_nosus$type)  # No Same VAR
 z.test(
   x = curve00_nosus$pvs[curve00_nosus$type == "max"],
   y = curve00_nosus$pvs[curve00_nosus$type == "last"],
@@ -880,7 +908,6 @@ cohensD(pvs ~ type, data = curve00_nosus)
 # Last comparison 
 curve00_last <- curve00[curve00$type == "last", ]
 describeBy(curve00_last$pvs, curve00_last$treatment)
-leveneTest(curve00_last$pvs, curve00_last$treatment)  # Same VAR
 z.test(
   x = curve00_last$pvs[curve00_last$treatment == "Suspected Sepsis"],
   y = curve00_last$pvs[curve00_last$treatment == "No Suspected Sepsis"],
@@ -892,7 +919,7 @@ z.test(
 cohensD(pvs ~ treatment, data = curve00_last)
 
 # Panel Plot ###
-maxlast <- pm1 +  pm2 + pm3
+maxlast <- pm1 +  pm3 + pm2
 maxlast <- maxlast + plot_layout(ncol = 3, guides = "collect") & theme(legend.position = "top", plot.title = element_text(face = "bold"))
 maxlast
 
@@ -905,6 +932,103 @@ ggsave(
   units = "in",
   compression = "lzw"
 )
+
+#Figure No SIRS and sepsis groups
+curve <- final %>% filter(treatment == "NoSIRS") %>%
+  group_by(id, treatment) %>%
+  summarise(max = max(as.numeric(unlist(rms)), na.rm = TRUE))
+
+  curve_sirs <- final %>% filter(treatment == "SIRS" & !(id %in% sus_ids) & !(id %in% proven_sepsis_ids)) %>%
+    group_by(id, treatment) %>%
+    summarise(max = max(as.numeric(unlist(rms)), na.rm = TRUE))
+  curve_sirs$treatment <- as.factor("SIRS")  
+
+curve_sus <- final %>% filter(id %in% sus_ids & !(id %in% proven_sepsis_ids)) %>%
+  group_by(id, treatment) %>%
+  summarise(max = max(as.numeric(unlist(rms)), na.rm = TRUE))
+curve_sus$treatment <- as.factor("Suspected Sepsis")
+
+curve_prov <- final %>% filter(id %in% proven_sepsis_ids) %>%
+  group_by(id, treatment) %>%
+  summarise(max = max(as.numeric(unlist(rms)), na.rm = TRUE))
+curve_prov$treatment <- as.factor("Proven Sepsis")
+
+curve <- rbind(curve, curve_sirs, curve_sus, curve_prov)
+curve <- curve %>% mutate(treatment = factor(treatment,
+                                             levels = c("NoSIRS", "SIRS", "Suspected Sepsis", "Proven Sepsis"),
+                                             labels = c("No SIRS", "SIRS", "Suspected Sepsis", "Proven Sepsis")))
+
+p4 <- curve %>%
+  ggplot(aes(x = treatment, y = max, color = treatment)) +
+  #ggtitle("C") +
+  geom_boxplot(outlier.shape = NA) +
+  geom_point(position = position_jitterdodge(jitter.width = 1),
+             size = 3,
+             alpha = 0.75) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  geom_signif(
+    y_position = c(1.05, 1.15, 1.25), xmin = c(1,1,1), xmax = c(2,3,4),
+    annotation = c("**", "****", "****"), tip_length = 0.03, color = "black", textsize = 6) +
+  labs (x = "", y = expression('PVS'[max])) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    axis.text = element_text(size = 13),
+    axis.title = element_text(size = 18)
+  ) +
+  scale_color_manual(values = c( "#001F5C", "#B30000", "#B30000", "#B30000"))
+p4
+
+ggsave(
+  "figs/figure_4.tiff",
+  plot = p4,
+  dpi = 300,
+  units = "in",
+  compression = "lzw"
+)
+
+# Statistics NoSIRS SIRS
+describeBy(curve$max, curve$treatment)
+z.test(
+  x = curve$max[curve$treatment == "No SIRS"],
+  y = curve$max[curve$treatment == "SIRS"],
+  sigma.x = sd(curve$max[curve$treatment == "No SIRS"], na.rm = TRUE),
+  sigma.y = sd(curve$max[curve$treatment == "SIRS"], na.rm = TRUE),
+  alternative = "two.sided"
+)
+
+curve0 <- curve %>% filter (treatment %in% c("No SIRS", "SIRS")) %>%
+  mutate( treatment = factor(treatment, levels = c("No SIRS", "SIRS")))
+cohensD(max ~ treatment, data = curve0)
+
+# Statistics NoSIRS Suspected Sepsis
+describeBy(curve$max, curve$treatment)
+z.test(
+  x = curve$max[curve$treatment == "No SIRS"],
+  y = curve$max[curve$treatment == "Suspected Sepsis"],
+  sigma.x = sd(curve$max[curve$treatment == "No SIRS"], na.rm = TRUE),
+  sigma.y = sd(curve$max[curve$treatment == "Suspected Sepsis"], na.rm = TRUE),
+  alternative = "two.sided"
+)
+
+curve0 <- curve %>% filter (treatment %in% c("No SIRS", "Suspected Sepsis")) %>%
+  mutate( treatment = factor(treatment, levels = c("No SIRS", "Suspected Sepsis")))
+cohensD(max ~ treatment, data = curve0)
+
+# Statistics NoSIRS Proven Sepsis
+describeBy(curve$max, curve$treatment)
+z.test(
+  x = curve$max[curve$treatment == "No SIRS"],
+  y = curve$max[curve$treatment == "Proven Sepsis"],
+  sigma.x = sd(curve$max[curve$treatment == "No SIRS"], na.rm = TRUE),
+  sigma.y = sd(curve$max[curve$treatment == "Proven Sepsis"], na.rm = TRUE),
+  alternative = "two.sided"
+)
+
+curve0 <- curve %>% filter (treatment %in% c("No SIRS", "Proven Sepsis")) %>%
+  mutate( treatment = factor(treatment, levels = c("No SIRS", "Proven Sepsis")))
+cohensD(max ~ treatment, data = curve0)
+
 
 # Actively differentiating between Sepsis and no Sepsis based on the Patient Vital Status. --------
 
@@ -1006,7 +1130,6 @@ mean(id_counts)
 # Comparison Proven Sepsis vs no Proven Sepsis in Proven Sepsis patients
 xx <- final %>% filter(id %in% proven_sepsis_ids)
 describeBy(xx$rms$rms, xx$proven_sepsis)
-leveneTest(xx$rms$rms, as.factor(xx$proven_sepsis))  # Same VAR
 z.test(
   x = xx$rms$rms[xx$proven_sepsis == "TRUE"],
   y = xx$rms$rms[xx$proven_sepsis == "FALSE"],
@@ -1123,18 +1246,18 @@ ggsave(
 # Use Case Generator ------------------------------------------------------
 
 #Settings
-which_id <- "100292"
-#plot_names <- c("G", "H", "I", "J", "K", "L")
-plot_names <- c("A", "B", "C", "D", "E", "F")
+which_id <- "100750"
+plot_names <- c("G", "H", "I", "J", "K", "L")
+#plot_names <- c("A", "B", "C", "D", "E", "F")
 in_sus <- which_id %in% sus_ids
 in_proven_sepsis <- which_id %in% proven_sepsis_ids
 in_sirs <- which_id %in% sirs_ids
 variable_name <- ifelse(in_sus, "sus_sepsis", ifelse(in_proven_sepsis, "proven_sepsis", ifelse(in_sirs, "sirs", NA)))
 #variable_name <- "proven_sepsis"
 
-line_size = 2
-vline_size = 0.75
-hline_size = 0.75
+line_size = 1.25
+vline_size = 0.5
+hline_size = 0.5
 
 # Plot
 curve0 <- final %>%
@@ -1196,6 +1319,9 @@ p02 <- ggplot() +
     #axis.ticks.x = element_blank(),
     #axis.text.x = element_blank()
   )
+
+## For ticks
+p02 <- p02 + scale_x_continuous(breaks = seq(0, 649260, 100), expand = c(0, 0.2))
 
 p03 <- ggplot() +
   ggtitle(plot_names[3]) +
@@ -1450,7 +1576,7 @@ ggsave(
 which_id <- "101137"
 plot_names <- c("A", "B", "C", "D", "E")
 
-line_size = 2
+line_size = 1.25
 
 # Plot
 curve0 <- dat_before_rolling_means %>%
@@ -1589,3 +1715,13 @@ ggsave(
   units = "in",
   compression = "lzw"
 )
+
+
+# Discussion --------------------------------------------------------------
+
+bsl # maximum deltas
+
+# How many patients had a time jump in reference values during PICU stay?
+result <- aggregate(age ~ id, data = age_pre, FUN = function(x) c(first = min(x), last = max(x)))
+result$jump <- result$age[, "first"] <= 0.45833333333 & result$age[, "last"] >= 0.45833333333
+
