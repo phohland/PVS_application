@@ -25,7 +25,9 @@ required_packages <- c(
   "zoo",
   # for rollmean
   "writexl",
-  "survival"
+  "survival",
+  "rstatix", "coin"
+  # for wilcoxon effect sizes
 )
 
 # Install required packages if not already and load them
@@ -448,11 +450,13 @@ ggsave(
 
 # Statistics
 describeBy(curve$max, curve$condition)
+IQR(curve$max[curve$condition == "Female"])
+IQR(curve$max[curve$condition == "Male"])
 
-shapiro_female <- shapiro.test(curve$max[curve$condition == "female"])
-shapiro_male <- shapiro.test(curve$max[curve$condition == "male"])
-wilcox <- wilcox.test(curve$max[curve$condition == "female"], curve$max[curve$condition == "male"], exact = FALSE)
-cohensD(max ~ condition, data = curve)
+shapiro_female <- shapiro.test(curve$max[curve$condition == "Female"])
+shapiro_male <- shapiro.test(curve$max[curve$condition == "Male"])
+wilcox <- wilcox_test(as.data.frame(curve), max ~ condition)
+eff <- wilcox_effsize(as.data.frame(curve), max ~ condition)
 
 z.test(
   x = curve$max[curve$condition == "female"],
@@ -467,7 +471,15 @@ z.test(
 
 # 4.3 Disease severity-related vital sign analysis in SIRS patients -----------
 
-model <- lmer(sirs ~ hr * time + sao2 * time + rr * time + map * time + temperature * time + (1|id), data = raw)
+raw$hr_scaled <- scale(raw$hr)
+raw$sao2_scaled <- scale(raw$sao2)
+raw$rr_scaled <- scale(raw$rr)
+raw$map_scaled <- scale(raw$map)
+raw$temperature_scaled <- scale(raw$temperature)
+
+model <- glmer(sirs ~ hr_scaled + sao2_scaled + rr_scaled + map_scaled + temperature_scaled + (1|id), data = raw, family = binomial)
+#model <- glmer(sirs ~ (hr_scaled + sao2_scaled + rr_scaled + map_scaled + temperature_scaled) * time_scaled + (1|id), data = raw, family = binomial)
+
 
 summary(model)
 
@@ -494,6 +506,11 @@ arrange(xx, time)
 describeBy(xx$rms$rms, xx$sus_sepsis)
 shapiro_sus <- shapiro.test(xx$rms$rms[xx$sus_sepsis == "TRUE"])
 shapiro_nosus <- shapiro.test(xx$rms$rms[xx$sus_sepsis == "FALSE"])
+
+xx$nrms <- xx$rms$rms
+wilcox <- wilcox_test(as.data.frame(xx), nrms ~ sus_sepsis)
+eff <- wilcox_effsize(as.data.frame(xx), nrms ~ sus_sepsis)
+
 wilcox <- wilcox.test(xx$rms$rms[xx$sus_sepsis == "TRUE"], xx$rms$rms[xx$sus_sepsis == "FALSE"], exact = FALSE)
 cohensD(rms$rms ~ sus_sepsis, data = xx)
 
@@ -527,6 +544,13 @@ arrange(xx, rms$rms)
 describeBy(xx$rms$rms, xx$proven_sepsis)
 shapiro_prov <- shapiro.test(xx$rms$rms[xx$proven_sepsis == "TRUE"])
 shapiro_noprov <- shapiro.test(xx$rms$rms[xx$proven_sepsis == "FALSE"])
+IQR(xx$rms$rms[xx$proven_sepsis == "TRUE"])
+IQR(xx$rms$rms[xx$proven_sepsis == "FALSE"])
+
+xx$nrms <- xx$rms$rms
+wilcox <- wilcox_test(as.data.frame(xx), nrms ~ proven_sepsis)
+eff <- wilcox_effsize(as.data.frame(xx), nrms ~ proven_sepsis)
+
 wilcox <- wilcox.test(xx$rms$rms[xx$proven_sepsis == "TRUE"], xx$rms$rms[xx$proven_sepsis == "FALSE"], exact = FALSE)
 cohensD(rms$rms ~ proven_sepsis, data = xx)
 
@@ -588,6 +612,8 @@ shapiro_without <- shapiro.test(curve$max[curve$treatment == "No Proven Sepsis"]
 shapiro_with <- shapiro.test(curve$max[curve$treatment == "Proven Sepsis"])
 wilcox <- wilcox.test(curve$max[curve$treatment == "No Proven Sepsis"], curve$max[curve$treatment == "Proven Sepsis"], exact = FALSE)
 
+wilcox <- wilcox_test(as.data.frame(curve), max ~ treatment)
+eff <- wilcox_effsize(as.data.frame(curve), max ~ treatment)
 
 # SIRS ###
 curve <- final
@@ -620,6 +646,8 @@ shapiro_without <- shapiro.test(curve$max[curve$treatment == "No SIRS"])
 shapiro_with <- shapiro.test(curve$max[curve$treatment == "SIRS"])
 wilcox <- wilcox.test(curve$max[curve$treatment == "No SIRS"], curve$max[curve$treatment == "SIRS"], exact = FALSE)
 
+wilcox <- wilcox_test(as.data.frame(curve), max ~ treatment)
+eff <- wilcox_effsize(as.data.frame(curve), max ~ treatment)
 
 # Sus Sepsis ###
 curve <- final
@@ -652,6 +680,8 @@ shapiro_without <- shapiro.test(curve$max[curve$treatment == "No Suspected Sepsi
 shapiro_with <- shapiro.test(curve$max[curve$treatment == "Suspected Sepsis"])
 wilcox <- wilcox.test(curve$max[curve$treatment == "No Suspected Sepsis"], curve$max[curve$treatment == "Suspected Sepsis"], exact = FALSE)
 
+wilcox <- wilcox_test(as.data.frame(curve), max ~ treatment)
+eff <- wilcox_effsize(as.data.frame(curve), max ~ treatment)
 
 ###
 
@@ -725,6 +755,9 @@ shapiro_max <- shapiro.test(curve00_sirs$pvs[curve00_sirs$type == "max"])
 shapiro_last <- shapiro.test(curve00_sirs$pvs[curve00_sirs$type == "last"])
 wilcox <- wilcox.test(curve00_sirs$pvs[curve00_sirs$type == "max"], curve00_sirs$pvs[curve00_sirs$type == "last"], exact = FALSE)
 
+wilcox <- wilcox_test(as.data.frame(curve00_sirs), pvs ~ type)
+eff <- wilcox_effsize(as.data.frame(curve00_sirs), pvs ~ type)
+
 # No SIRS
 curve00_nosirs <- curve00[curve00$treatment == "No SIRS", ]
 describeBy(curve00_nosirs$pvs, curve00_nosirs$type)
@@ -742,6 +775,8 @@ shapiro_max <- shapiro.test(curve00_nosirs$pvs[curve00_nosirs$type == "max"])
 shapiro_last <- shapiro.test(curve00_nosirs$pvs[curve00_nosirs$type == "last"])
 wilcox <- wilcox.test(curve00_nosirs$pvs[curve00_nosirs$type == "max"], curve00_nosirs$pvs[curve00_nosirs$type == "last"], exact = FALSE)
 
+wilcox <- wilcox_test(as.data.frame(curve00_nosirs), pvs ~ type)
+eff <- wilcox_effsize(as.data.frame(curve00_nosirs), pvs ~ type)
 
 # Last comparison 
 curve00_last <- curve00[curve00$type == "last", ]
@@ -760,6 +795,8 @@ shapiro_with <- shapiro.test(curve00_last$pvs[curve00_last$treatment == "SIRS"])
 shapiro_without <- shapiro.test(curve00_last$pvs[curve00_last$treatment == "No SIRS"])
 wilcox <- wilcox.test(curve00_last$pvs[curve00_last$treatment == "SIRS"], curve00_last$pvs[curve00_last$treatment == "No SIRS"], exact = FALSE)
 
+wilcox <- wilcox_test(as.data.frame(curve00_last), pvs ~ treatment)
+eff <- wilcox_effsize(as.data.frame(curve00_last), pvs ~ treatment)
 
 ## Proven Sepsis
 proven_sepsis_ids <- unique(final$id[final$proven_sepsis == TRUE])
@@ -800,7 +837,7 @@ pm2 <- curve00 %>%
   geom_hline(yintercept = 1, linetype = "dashed") +
   geom_signif(
     y_position = c(1.05, 1.05, 1.15), xmin = c(0.8, 1.8, 0.8), xmax = c(1.2, 2.2, 1.8),
-    annotation = c("****", "****", "***"), tip_length = 0.03, color = "black", textsize = 6) +
+    annotation = c("****", "**", "**"), tip_length = 0.03, color = "black", textsize = 6) +
   labs (x = "", y = "PVS", color = "PVS Type") +
   theme_classic() +
   theme(
@@ -829,6 +866,9 @@ shapiro_max <- shapiro.test(curve00_prov$pvs[curve00_prov$type == "max"])
 shapiro_last <- shapiro.test(curve00_prov$pvs[curve00_prov$type == "last"])
 wilcox <- wilcox.test(curve00_prov$pvs[curve00_prov$type == "max"], curve00_prov$pvs[curve00_prov$type == "last"], exact = FALSE)
 
+wilcox <- wilcox_test(as.data.frame(curve00_prov), pvs ~ type)
+eff <- wilcox_effsize(as.data.frame(curve00_prov), pvs ~ type)
+
 # No Proven Sepsis
 curve00_noprov <- curve00[curve00$treatment == "No Proven Sepsis", ]
 describeBy(curve00_noprov$pvs, curve00_noprov$type)
@@ -846,6 +886,8 @@ shapiro_max <- shapiro.test(curve00_noprov$pvs[curve00_noprov$type == "max"])
 shapiro_last <- shapiro.test(curve00_noprov$pvs[curve00_noprov$type == "last"])
 wilcox <- wilcox.test(curve00_noprov$pvs[curve00_noprov$type == "max"], curve00_noprov$pvs[curve00_noprov$type == "last"], exact = FALSE)
 
+wilcox <- wilcox_test(as.data.frame(curve00_noprov), pvs ~ type)
+eff <- wilcox_effsize(as.data.frame(curve00_noprov), pvs ~ type)
 
 # Last comparison 
 curve00_last <- curve00[curve00$type == "last", ]
@@ -864,6 +906,8 @@ shapiro_with <- shapiro.test(curve00_last$pvs[curve00_last$treatment == "Proven 
 shapiro_without <- shapiro.test(curve00_last$pvs[curve00_last$treatment == "No Proven Sepsis"])
 wilcox <- wilcox.test(curve00_last$pvs[curve00_last$treatment == "Proven Sepsis"], curve00_last$pvs[curve00_last$treatment == "No Proven Sepsis"], exact = FALSE)
 
+wilcox <- wilcox_test(as.data.frame(curve00_last), pvs ~ treatment)
+eff <- wilcox_effsize(as.data.frame(curve00_last), pvs ~ treatment)
 
 ## Suspected Sepsis
 sus_ids <- unique(final$id[final$sus_sepsis == TRUE])
@@ -933,6 +977,8 @@ shapiro_max <- shapiro.test(curve00_sus$pvs[curve00_sus$type == "max"])
 shapiro_last <- shapiro.test(curve00_sus$pvs[curve00_sus$type == "last"])
 wilcox <- wilcox.test(curve00_sus$pvs[curve00_sus$type == "max"], curve00_sus$pvs[curve00_sus$type == "last"], exact = FALSE)
 
+wilcox <- wilcox_test(as.data.frame(curve00_sus), pvs ~ type)
+eff <- wilcox_effsize(as.data.frame(curve00_sus), pvs ~ type)
 
 # No Suspected Sepsis
 curve00_nosus <- curve00[curve00$treatment == "No Suspected Sepsis", ]
@@ -951,6 +997,8 @@ shapiro_max <- shapiro.test(curve00_nosus$pvs[curve00_nosus$type == "max"])
 shapiro_last <- shapiro.test(curve00_nosus$pvs[curve00_nosus$type == "last"])
 wilcox <- wilcox.test(curve00_nosus$pvs[curve00_nosus$type == "max"], curve00_nosus$pvs[curve00_nosus$type == "last"], exact = FALSE)
 
+wilcox <- wilcox_test(as.data.frame(curve00_nosus), pvs ~ type)
+eff <- wilcox_effsize(as.data.frame(curve00_nosus), pvs ~ type)
 
 # Last comparison 
 curve00_last <- curve00[curve00$type == "last", ]
@@ -969,6 +1017,8 @@ shapiro_with <- shapiro.test(curve00_last$pvs[curve00_last$treatment == "Suspect
 shapiro_without <- shapiro.test(curve00_last$pvs[curve00_last$treatment == "No Suspected Sepsis"])
 wilcox <- wilcox.test(curve00_last$pvs[curve00_last$treatment == "Suspected Sepsis"], curve00_last$pvs[curve00_last$treatment == "No Suspected Sepsis"], exact = FALSE)
 
+wilcox <- wilcox_test(as.data.frame(curve00_last), pvs ~ treatment)
+eff <- wilcox_effsize(as.data.frame(curve00_last), pvs ~ treatment)
 
 # Panel Plot ###
 maxlast <- pm1 +  pm3 + pm2
@@ -1025,7 +1075,7 @@ p4 <- curve %>%
   geom_hline(yintercept = 1, linetype = "dashed") +
   geom_signif(
     y_position = c(1.05, 1.15, 1.25), xmin = c(1,1,1), xmax = c(2,3,4),
-    annotation = c("**", "****", "****"), tip_length = 0.03, color = "black", textsize = 6) +
+    annotation = c("*", "***", "***"), tip_length = 0.03, color = "black", textsize = 6) +
   labs (x = "", y = expression('PVS'[max])) +
   theme_classic() +
   theme(
@@ -1049,7 +1099,11 @@ describeBy(curve$max, curve$treatment)
 
 shapiro_without <- shapiro.test(curve$max[curve$treatment == "No SIRS"])
 shapiro_with <- shapiro.test(curve$max[curve$treatment == "SIRS"])
-wilcox <- wilcox.test(curve$max[curve$treatment == "No SIRS"], curve$max[curve$treatment == "SIRS"], exact = FALSE)
+
+curve0 <- curve %>% filter (treatment %in% c("No SIRS", "SIRS")) %>%
+  mutate( treatment = factor(treatment, levels = c("No SIRS", "SIRS")))
+wilcox <- wilcox_test(as.data.frame(curve0), max ~ treatment)
+eff <- wilcox_effsize(as.data.frame(curve0), max ~ treatment)
 
 z.test(
   x = curve$max[curve$treatment == "No SIRS"],
@@ -1058,9 +1112,6 @@ z.test(
   sigma.y = sd(curve$max[curve$treatment == "SIRS"], na.rm = TRUE),
   alternative = "two.sided"
 )
-
-curve0 <- curve %>% filter (treatment %in% c("No SIRS", "SIRS")) %>%
-  mutate( treatment = factor(treatment, levels = c("No SIRS", "SIRS")))
 cohensD(max ~ treatment, data = curve0)
 
 # Statistics NoSIRS Suspected Sepsis
@@ -1068,7 +1119,11 @@ describeBy(curve$max, curve$treatment)
 
 shapiro_without <- shapiro.test(curve$max[curve$treatment == "No SIRS"])
 shapiro_with <- shapiro.test(curve$max[curve$treatment == "Suspected Sepsis"])
-wilcox <- wilcox.test(curve$max[curve$treatment == "No SIRS"], curve$max[curve$treatment == "Suspected Sepsis"], exact = FALSE)
+
+curve0 <- curve %>% filter (treatment %in% c("No SIRS", "Suspected Sepsis")) %>%
+  mutate( treatment = factor(treatment, levels = c("No SIRS", "Suspected Sepsis")))
+wilcox <- wilcox_test(as.data.frame(curve0), max ~ treatment)
+eff <- wilcox_effsize(as.data.frame(curve0), max ~ treatment)
 
 z.test(
   x = curve$max[curve$treatment == "No SIRS"],
@@ -1077,9 +1132,6 @@ z.test(
   sigma.y = sd(curve$max[curve$treatment == "Suspected Sepsis"], na.rm = TRUE),
   alternative = "two.sided"
 )
-
-curve0 <- curve %>% filter (treatment %in% c("No SIRS", "Suspected Sepsis")) %>%
-  mutate( treatment = factor(treatment, levels = c("No SIRS", "Suspected Sepsis")))
 cohensD(max ~ treatment, data = curve0)
 
 # Statistics NoSIRS Proven Sepsis
@@ -1087,7 +1139,11 @@ describeBy(curve$max, curve$treatment)
 
 shapiro_without <- shapiro.test(curve$max[curve$treatment == "No SIRS"])
 shapiro_with <- shapiro.test(curve$max[curve$treatment == "Proven Sepsis"])
-wilcox <- wilcox.test(curve$max[curve$treatment == "No SIRS"], curve$max[curve$treatment == "Proven Sepsis"], exact = FALSE)
+
+curve0 <- curve %>% filter (treatment %in% c("No SIRS", "Proven Sepsis")) %>%
+  mutate( treatment = factor(treatment, levels = c("No SIRS", "Proven Sepsis")))
+wilcox <- wilcox_test(as.data.frame(curve0), max ~ treatment)
+eff <- wilcox_effsize(as.data.frame(curve0), max ~ treatment)
 
 z.test(
   x = curve$max[curve$treatment == "No SIRS"],
@@ -1096,9 +1152,6 @@ z.test(
   sigma.y = sd(curve$max[curve$treatment == "Proven Sepsis"], na.rm = TRUE),
   alternative = "two.sided"
 )
-
-curve0 <- curve %>% filter (treatment %in% c("No SIRS", "Proven Sepsis")) %>%
-  mutate( treatment = factor(treatment, levels = c("No SIRS", "Proven Sepsis")))
 cohensD(max ~ treatment, data = curve0)
 
 ## Additional analyses
