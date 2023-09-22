@@ -356,9 +356,13 @@ mean(prov_desc$age_at_admission)
 # p-values
 shapiro_nosirs <- shapiro.test(as.numeric(nosirs_desc$stay))
 shapiro_sirs <- shapiro.test(as.numeric(sirs_desc$stay))
-wilcox <- wilcox.test(as.numeric(nosirs_desc$stay), as.numeric(sirs_desc$stay), exact = FALSE)
-cohensD(as.numeric(nosirs_desc$stay),
-        as.numeric(sirs_desc$stay))
+
+stay_values <- c(as.numeric(sirs_desc$stay), as.numeric(nosirs_desc$stay))
+condition_values <- c(rep("SIRS", length(sirs_desc$stay)), rep("No SIRS", length(nosirs_desc$stay)))
+data_frame <- data.frame(stay = stay_values, condition = factor(condition_values))
+
+wilcox <- wilcox_test(data_frame, stay ~ condition)
+eff <- wilcox_effsize(data_frame, stay ~ condition)
 
 z.test(
   x = nosirs_desc$stay,
