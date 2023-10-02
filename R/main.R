@@ -481,11 +481,18 @@ raw$rr_scaled <- scale(raw$rr)
 raw$map_scaled <- scale(raw$map)
 raw$temperature_scaled <- scale(raw$temperature)
 
-model <- glmer(sirs ~ hr_scaled + sao2_scaled + rr_scaled + map_scaled + temperature_scaled + (1|id), data = raw, family = binomial)
-#model <- glmer(sirs ~ (hr_scaled + sao2_scaled + rr_scaled + map_scaled + temperature_scaled) * time_scaled + (1|id), data = raw, family = binomial)
+# Fit the GLMM model
+glm_model <- glmer(sirs ~ hr_scaled + sao2_scaled + rr_scaled + map_scaled + temperature_scaled + (1|id), data = raw, family = binomial(link = "logit"),
+                   control = glmerControl(optimizer = "Nelder_Mead"))
 
+# Likelihood ratio test for the significance of random effects
+null_model <- glmer(sirs ~ (1| id), family = binomial(link = "logit"), data = raw)
 
-summary(model)
+lr_test <- anova(null_model, glm_model)
+print(lr_test)
+
+conf_intervals            <- confint(glm_model)
+odds_ratio_intervals <- exp(conf_intervals)
 
 # 4.4	Using the PVS in disease severity monitoring ---------------------------
 
