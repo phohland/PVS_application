@@ -1,5 +1,5 @@
 #'
-#' Quantifying patient vital status: a translational composite score
+#' PVS
 #'
 #' R file to setup raw data
 #'
