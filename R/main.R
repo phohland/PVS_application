@@ -8,7 +8,7 @@
 
 # Required packages
 required_packages <- c(
-  "hRELSA",
+  "PVS",
   "tidyverse",
   "janitor",
   "readxl",
@@ -174,14 +174,14 @@ raw_norm <- raw_norm %>% select("age", all_of(vars))
 
 # Generate time column (in seconds)
 raw <-
-  hrelsa_days(raw,
+  pvs_days(raw,
               format = "timecode",
               formthis = "timepoint",
               newdayone = TRUE)
 
 # Format the data
 dat <-
-  hrelsa_format(
+  pvs_format(
     raw,
     id = "id",
     time = "time",
@@ -208,7 +208,7 @@ reference_dat <- dat %>% filter(treatment == "NoSIRS")
 
 # Baseline calculation (maximum severity evalulation)
 bsl <-
-  hrelsa_adaptive_baselines(
+  pvs_adaptive_baselines(
     dat,
     reference_dat,
     vars = vars,
@@ -229,7 +229,7 @@ write_xlsx(pre, "output/pre.xlsx")
 
 # Generate final data
 final <-
-  hrelsa_final(
+  pvs_final(
     pre,
     bsl,
     drop = dropvars,
@@ -239,7 +239,7 @@ final <-
   )
 
 # Generate some analysis
-analysis <- hrelsa_analysis(final)
+analysis <- pvs_analysis(final)
 
 # Preparation: Sepsis Label Setup --------------------------------------------------------
 

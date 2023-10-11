@@ -7,7 +7,7 @@
 
 # Libraries ---------------------------------------------------------------
 
-required_packages <- c("hRELSA", "tidyverse", "janitor", "readxl", "writexl")
+required_packages <- c("PVS", "tidyverse", "janitor", "readxl", "writexl")
 
 for (package_name in required_packages) {
   if (!require(package_name,
